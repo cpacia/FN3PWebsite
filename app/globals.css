@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+ * FN3P brand tokens — the "Resort Print" direction.
+ *
+ * The brand isn't a colour, it's a library of hand-painted prints. Black ink and
+ * off-white paper are the only constants; every other colour arrives with a
+ * collection. Section components consume --color-fn-accent rather than a named
+ * hue, so re-skinning a section for a new drop is a token swap.
+ *
+ * See docs/brand/design-directions.md for the full system and the four
+ * directions we didn't take.
+ */
+@theme {
+  /* Constants */
+  --color-fn-ink: #111111;
+  --color-fn-ink-soft: #4a4a4a;
+  --color-fn-paper: #faf8f4;
+  --color-fn-line: #e2ddd3;
+
+  /* Signature print, sampled from banner.png */
+  --color-fn-aqua: #84d7e7;
+  --color-fn-aqua-light: #c3eaef;
+  --color-fn-deep: #0b4f63;
+
+  /* Rotating collection accents */
+  --color-fn-royal: #1b44e0;
+  --color-fn-navy: #16233f;
+  --color-fn-seafoam: #9fd8c8;
+  --color-fn-sand: #e4d3b8;
+  --color-fn-pistachio: #c7d89a;
+  --color-fn-marg: #ef7b45;
+
+  --font-display: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  /* Remapped per collection/season by the section that owns it. */
+  --color-fn-accent: var(--color-fn-aqua);
+}
+
+body {
+  background: var(--color-fn-paper);
+  color: var(--color-fn-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Display type is set tight and large; the logo is a geometric monoline built
+ * from circles and squares, and Outfit's circular counters echo it.
+ */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+/*
+ * The data register: competition results read as a printed results sheet, so
+ * figures must align in columns.
+ */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes fn-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes fn-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: fn-rise 0.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  [class*="animate-"] {
+    animation: none !important;
+  }
+}
