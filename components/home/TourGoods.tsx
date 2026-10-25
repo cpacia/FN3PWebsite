@@ -23,7 +23,7 @@ const BLURBS: Record<string, string> = {
     "One entry, any stop on the schedule. Handicapped, so anyone can win.",
   "fn3p-ghin-club":
     "An official GHIN handicap through FN3P. Required to play the tour.",
-  "fn3p-x-phoenix-open":
+  "fn3p-wmo-trip":
     "Six days in Scottsdale. Three courses, a Sunday skybox, payment plan available.",
 };
 

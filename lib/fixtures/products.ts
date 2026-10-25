@@ -118,3 +118,16 @@ export const PLACEHOLDER_TOUR_GOODS: ProductCard[] = [
     availableForSale: true,
   },
 ];
+
+/**
+ * The Phoenix trip's payment options, as the live store lists them, for the
+ * trip page while the Storefront API isn't wired up. The ids are the store's
+ * numeric variant ids, which its product page takes as `?variant=`. Delete with
+ * the rest of this file once SHOPIFY_STOREFRONT_TOKEN is set.
+ */
+export const PLACEHOLDER_PHOENIX_PAYMENTS = [
+  { variantId: "42386992136235", label: "Pay In Full", price: "$3,090.00" },
+  { variantId: "42386992169003", label: "Half Payment", price: "$1,545.00" },
+  { variantId: "42467368927275", label: "Single Payment", price: "$772.50" },
+  { variantId: "67946668425259", label: "Alternative Payment", price: "$1,442.00" },
+];

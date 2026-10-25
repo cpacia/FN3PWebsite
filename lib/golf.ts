@@ -1,24 +1,25 @@
 /**
  * The three kinds of FN3P golf, and how an event is sorted into one.
  *
- * Front9 has one flat event list per org, but FN3P runs three different things
+ * Front9 has one flat event list per org, but FN3P runs four different things
  * out of it, each with its own section of the site:
  *
  *   - **League** — a night of an indoor simulator league. Identified by the
  *     *link* between the event and its league (`?eventSeries=`), not by a tag,
  *     so the schedule can't drift from the league itself.
  *   - **Charity** — the scrambles run through the year, tagged `charity`.
+ *   - **Phoenix** — the rounds of the WM Phoenix Open trip, tagged `wm-open`.
  *   - **Tour** — everything else: the summer outdoor league. Deliberately the
  *     default, so a tour event needs no setup in Front9 beyond being created.
  *
- * League membership wins over the tag, so a charity night inside a league still
+ * League membership wins over the tags, so a charity night inside a league still
  * lives on the league's schedule.
  */
 import { listEvents, listLeagues } from "@/lib/providers/front9";
 import type { EventDetail, EventSummary, League } from "@/lib/providers/types";
 import { formatDate } from "@/lib/seo";
 
-export type EventKind = "tour" | "charity" | "league";
+export type EventKind = "tour" | "charity" | "league" | "phoenix";
 
 /**
  * The tour membership's plan name in Front9. The plan is looked up by this name
@@ -32,6 +33,9 @@ export const TOUR_MEMBERSHIP_PRODUCT = "fn3p-golf-tour";
 /** The Front9 tag that files an event under Charity. Matching is exact. */
 export const CHARITY_TAG = "charity";
 
+/** The Front9 tag that files an event as a round of the Phoenix trip. Matching is exact. */
+export const PHOENIX_TAG = "wm-open";
+
 /** Timezone the tour plays in, for "is this today / in the past" decisions. */
 const LOCAL_TIMEZONE = "America/New_York";
 
@@ -43,6 +47,7 @@ export interface LeagueSchedule {
 export interface GolfCalendar {
   tour: EventSummary[];
   charity: EventSummary[];
+  phoenix: EventSummary[];
   leagues: LeagueSchedule[];
 }
 
@@ -57,25 +62,36 @@ function byDate(a: EventSummary, b: EventSummary): number {
 
 /**
  * Every listable event, sorted into its kind, each list in date order. One
- * request per league on top of two list calls — all cached, and memoised
+ * request per league on top of three list calls — all cached, and memoised
  * across a render, so every page can call this freely.
  */
 export async function getGolfCalendar(): Promise<GolfCalendar> {
-  const [all, charityTagged, leagues] = await Promise.all([
+  const [all, charityTagged, phoenixTagged, leagues] = await Promise.all([
     listEvents(),
     listEvents({ tag: [CHARITY_TAG] }),
+    listEvents({ tag: [PHOENIX_TAG] }),
     listLeagues(),
   ]);
   const schedules = await Promise.all(leagues.map((l) => listEvents({ eventSeries: l.slug })));
 
   const inLeague = new Set(schedules.flat().map((e) => e.eventId));
   const isCharity = new Set(charityTagged.map((e) => e.eventId));
+  const isPhoenix = new Set(phoenixTagged.map((e) => e.eventId));
 
   return {
     tour: all
-      .filter((e) => listable(e) && !inLeague.has(e.eventId) && !isCharity.has(e.eventId))
+      .filter(
+        (e) =>
+          listable(e) &&
+          !inLeague.has(e.eventId) &&
+          !isCharity.has(e.eventId) &&
+          !isPhoenix.has(e.eventId),
+      )
       .sort(byDate),
-    charity: charityTagged.filter((e) => listable(e) && !inLeague.has(e.eventId)).sort(byDate),
+    charity: charityTagged
+      .filter((e) => listable(e) && !inLeague.has(e.eventId) && !isPhoenix.has(e.eventId))
+      .sort(byDate),
+    phoenix: phoenixTagged.filter((e) => listable(e) && !inLeague.has(e.eventId)).sort(byDate),
     leagues: leagues.map((league, i) => ({
       league,
       events: schedules[i].filter(listable).sort(byDate),
@@ -91,6 +107,9 @@ export async function locateEvent(
   for (const { league, events } of cal.leagues) {
     if (events.some((e) => e.eventId === slug)) return { kind: "league", league, siblings: events };
   }
+  if (cal.phoenix.some((e) => e.eventId === slug)) {
+    return { kind: "phoenix", league: null, siblings: cal.phoenix };
+  }
   if (cal.charity.some((e) => e.eventId === slug)) {
     return { kind: "charity", league: null, siblings: cal.charity };
   }
@@ -104,6 +123,7 @@ export async function locateEvent(
 export function eventPath(kind: EventKind, slug: string, leagueSlug?: string): string {
   if (kind === "league" && leagueSlug) return `/indoor/${leagueSlug}/${slug}`;
   if (kind === "charity") return `/charity/${slug}`;
+  if (kind === "phoenix") return `/phoenix-open/${slug}`;
   return `/tour/${slug}`;
 }
 

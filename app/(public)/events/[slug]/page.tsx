@@ -6,7 +6,7 @@ export const revalidate = 300;
 /**
  * A stable link for any event, whatever kind it is — for announcements, emails
  * and Front9 itself, which only know the event slug. Sends the visitor on to the
- * event's real page under /tour, /charity or /indoor.
+ * event's real page under /tour, /charity, /indoor or /phoenix-open.
  */
 export default async function EventRedirect({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
