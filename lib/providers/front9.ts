@@ -935,6 +935,11 @@ export async function getTeeSheets(slug: string): Promise<TeeSheet[]> {
       const slots = [...(sheet.slots ?? [])].sort(
         (a, b) => (a.time ?? "").localeCompare(b.time ?? "") || a.position - b.position,
       );
+      // A shotgun labels every group's hole, 1A included; on a plain tee-time
+      // sheet everyone goes off the 1st, so the hole isn't worth printing.
+      const shotgun = slots.some(
+        (s) => !!s.shotgunGroup || (s.startingHole != null && s.startingHole !== 1),
+      );
       return {
         round: sheet.round,
         date: (slots.find((s) => s.date)?.date ?? "").slice(0, 10),
@@ -943,7 +948,7 @@ export async function getTeeSheets(slug: string): Promise<TeeSheet[]> {
           where:
             s.bay != null
               ? `Bay ${s.bay}`
-              : s.startingHole != null && s.startingHole !== 1
+              : shotgun && s.startingHole != null
                 ? `Hole ${s.startingHole}${s.shotgunGroup ?? ""}`
                 : "",
           course: s.courseName ?? "",
