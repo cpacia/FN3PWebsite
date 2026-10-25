@@ -20,6 +20,15 @@ import { formatDate } from "@/lib/seo";
 
 export type EventKind = "tour" | "charity" | "league";
 
+/**
+ * The tour membership's plan name in Front9. The plan is looked up by this name
+ * rather than an id, so it survives being recreated; rename both together.
+ */
+export const TOUR_MEMBERSHIP = "FN3P Tour Membership";
+
+/** Shopify product the membership CTAs fall back to until the Front9 plan exists. */
+export const TOUR_MEMBERSHIP_PRODUCT = "fn3p-golf-tour";
+
 /** The Front9 tag that files an event under Charity. Matching is exact. */
 export const CHARITY_TAG = "charity";
 

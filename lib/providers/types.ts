@@ -261,3 +261,11 @@ export interface ScorecardRound {
 export interface Scorecard {
   rounds: ScorecardRound[];
 }
+
+/** A membership plan sold through Front9 (the tour membership). */
+export interface MembershipType {
+  id: number;
+  name: string;
+  /** Price in cents; null when Front9 doesn't publish one. */
+  priceCents: number | null;
+}

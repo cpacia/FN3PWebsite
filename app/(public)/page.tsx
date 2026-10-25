@@ -10,8 +10,8 @@ import { TourGoods } from "@/components/home/TourGoods";
 import { PLACEHOLDER_DROP, PLACEHOLDER_TOUR_GOODS } from "@/lib/fixtures/products";
 import { daysUntilTrip } from "@/lib/phoenix";
 import { getSeasonMode } from "@/lib/season";
-import { defaultSeason, getGolfCalendar, nextUp } from "@/lib/golf";
-import { listPosts } from "@/lib/providers/front9";
+import { defaultSeason, getGolfCalendar, nextUp, TOUR_MEMBERSHIP, TOUR_MEMBERSHIP_PRODUCT } from "@/lib/golf";
+import { getMembershipType, listPosts } from "@/lib/providers/front9";
 import { getDropProducts, getProductsByHandle } from "@/lib/shopify";
 
 /**
@@ -22,17 +22,18 @@ import { getDropProducts, getProductsByHandle } from "@/lib/shopify";
 export const revalidate = 300;
 
 /** The three non-apparel SKUs the store sells as products. */
-const TOUR_GOODS_HANDLES = ["fn3p-golf-tour", "fn3p-ghin-club", "fn3p-x-phoenix-open"];
+const TOUR_GOODS_HANDLES = [TOUR_MEMBERSHIP_PRODUCT, "fn3p-ghin-club", "fn3p-x-phoenix-open"];
 
 export default async function HomePage() {
   const mode = getSeasonMode();
 
-  const [liveDrop, calendar, turn, liveTourGoods] =
+  const [liveDrop, calendar, turn, liveTourGoods, membership] =
     await Promise.all([
       getDropProducts(8),
       getGolfCalendar(),
       listPosts({ limit: 3 }),
       getProductsByHandle(TOUR_GOODS_HANDLES),
+      getMembershipType(TOUR_MEMBERSHIP),
     ]);
 
   // Shopify isn't wired up yet, so products fall back to placeholders drawn from
@@ -80,7 +81,7 @@ export default async function HomePage() {
       <PhoenixFeature daysOut={daysUntilTrip()} />
       <CategoryTiles />
       <TheTurnRail posts={turn.posts} />
-      <TourGoods products={tourGoods} />
+      <TourGoods products={tourGoods} membership={membership} />
       <Sponsors />
     </>
   );

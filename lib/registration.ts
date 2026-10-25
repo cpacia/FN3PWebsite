@@ -1,12 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eventPath, leagueStage, locateEvent } from "@/lib/golf";
+import { eventPath, leagueStage, locateEvent, TOUR_MEMBERSHIP } from "@/lib/golf";
 import {
   getEventDetail,
   getLeague,
+  getMembershipType,
   startEventRegistration,
   startLeagueRegistration,
+  startMembershipPurchase,
 } from "@/lib/providers/front9";
 
 /**
@@ -38,4 +40,13 @@ export async function registerForLeague(slug: string) {
       ? await startLeagueRegistration(league.id)
       : null;
   redirect(target ?? `/indoor/${slug}?registration=failed`);
+}
+
+/** Buy the tour membership. `back` is the page to return to if it can't start. */
+export async function joinTour(back: string) {
+  const plan = await getMembershipType(TOUR_MEMBERSHIP);
+  const target = plan ? await startMembershipPurchase(plan.id) : null;
+  // Only ever back to one of our own pages.
+  const home = back.startsWith("/") && !back.startsWith("//") ? back : "/";
+  redirect(target ?? `${home}?registration=failed`);
 }

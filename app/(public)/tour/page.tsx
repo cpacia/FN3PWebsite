@@ -3,7 +3,9 @@ import Link from "next/link";
 import { FactStrip } from "@/components/golf/EventHeader";
 import { EventStatus } from "@/components/golf/EventStatus";
 import { EventTabs } from "@/components/golf/EventTabs";
+import { RegistrationFailed } from "@/components/golf/RegisterButton";
 import { StandingsTable } from "@/components/golf/StandingsTable";
+import { TourMembershipButton } from "@/components/golf/TourMembershipButton";
 import { ButtonLink } from "@/components/ui/Button";
 import {
   dateLabel,
@@ -12,10 +14,10 @@ import {
   getGolfCalendar,
   nextUp,
   seasonYears,
+  TOUR_MEMBERSHIP,
 } from "@/lib/golf";
 import { CHAMPIONSHIP_TAGS } from "@/lib/championship";
-import { productHref } from "@/lib/links";
-import { getTourStandings, listEvents } from "@/lib/providers/front9";
+import { getMembershipType, getTourStandings, listEvents } from "@/lib/providers/front9";
 import { socialMetadata } from "@/lib/seo";
 
 export const revalidate = 300;
@@ -39,11 +41,12 @@ export default async function TourPage({
 }: {
   searchParams: Promise<{ season?: string }>;
 }) {
-  const [{ season: rawSeason }, calendar, standings, playoffs] = await Promise.all([
+  const [{ season: rawSeason }, calendar, standings, playoffs, membership] = await Promise.all([
     searchParams,
     getGolfCalendar(),
     getTourStandings(),
     listEvents({ tag: CHAMPIONSHIP_TAGS }),
+    getMembershipType(TOUR_MEMBERSHIP),
   ]);
 
   const years = seasonYears(calendar.tour);
@@ -97,14 +100,13 @@ export default async function TourPage({
                 {next.registrationOpen ? "Enter the next event" : "Next event"}
               </ButtonLink>
             )}
-            <a
-              href={productHref("fn3p-golf-tour")}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-full border-2 border-fn-ink px-7 py-3 font-display text-sm font-bold uppercase tracking-[0.12em] text-fn-ink transition-colors hover:bg-fn-ink hover:text-fn-paper"
+            <TourMembershipButton
+              plan={membership}
+              back="/tour"
+              className="border-2 border-fn-ink text-fn-ink hover:bg-fn-ink hover:text-fn-paper"
             >
               Tour membership
-            </a>
+            </TourMembershipButton>
             <Link
               href="/tour/rules"
               className="font-display text-sm font-bold uppercase tracking-[0.12em] text-fn-ink underline underline-offset-4 hover:opacity-70"
@@ -112,6 +114,7 @@ export default async function TourPage({
               Tour rules
             </Link>
           </div>
+          <RegistrationFailed message="Checkout couldn't be started. Please try again, or reach out and we'll get you signed up." />
         </div>
       </header>
 

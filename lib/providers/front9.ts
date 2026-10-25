@@ -24,6 +24,7 @@ import type {
   FieldPlayer,
   League,
   Leaderboard,
+  MembershipType,
   Post,
   PostSummary,
   Scorecard,
@@ -550,6 +551,56 @@ export async function subscribeToNewsletter(email: string): Promise<boolean> {
 // ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
+
+/** A membership plan the org sells (`GET /orgs/:slug/membership-types`). */
+interface Front9MembershipType {
+  id: number;
+  name?: string | null;
+  price?: number | null;
+}
+
+/**
+ * A membership plan by its name in Front9, matched without regard to case or
+ * spacing. Null when unconfigured, not found, or on error — callers fall back
+ * to the Shopify product while the plan doesn't exist yet.
+ */
+export async function getMembershipType(name: string): Promise<MembershipType | null> {
+  const cfg = front9OrgBase();
+  if (!cfg) return null;
+  const key = name.trim().replace(/\s+/g, " ").toLowerCase();
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/membership-types`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 300 } });
+    if (!res.ok) return null;
+    const types = (await res.json()) as Front9MembershipType[];
+    const t = types.find((m) => (m.name ?? "").trim().replace(/\s+/g, " ").toLowerCase() === key);
+    return t ? { id: t.id, name: (t.name ?? "").trim(), priceCents: t.price ?? null } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Mint the hosted checkout URL for a membership plan. Null on any failure. */
+export async function startMembershipPurchase(id: number): Promise<string | null> {
+  const cfg = front9OrgBase();
+  if (!cfg) return null;
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/membership-types/${encodeURIComponent(
+    String(id),
+  )}/purchase/start`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { ...ACCEPT_JSON, "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { url?: string };
+    return data.url ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Start a hosted registration for an event and return the URL to redirect to.
