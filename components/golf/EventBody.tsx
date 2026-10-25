@@ -2,14 +2,17 @@ import { EventOverview } from "@/components/golf/EventOverview";
 import { EventTabs, type EventTab } from "@/components/golf/EventTabs";
 import { FieldPanel } from "@/components/golf/FieldPanel";
 import { LeaderboardView } from "@/components/golf/LeaderboardView";
+import { OddsPanel } from "@/components/golf/OddsPanel";
 import { TeeTimesPanel } from "@/components/golf/TeeTimesPanel";
 import { hasResults } from "@/lib/leaderboard";
 import { isPast, localToday, netCompetitionIds } from "@/lib/golf";
 import {
   getEventField,
   getLeaderboards,
+  getOdds,
   getTeeSheets,
   leaderboardStreamUrl,
+  oddsStreamUrl,
 } from "@/lib/providers/front9";
 import type { EventDetail } from "@/lib/providers/types";
 
@@ -19,12 +22,18 @@ import type { EventDetail } from "@/lib/providers/types";
  *
  * The live stream is only opened while scores can actually move — the event is
  * in progress, or it's inside its play window and not yet marked done.
+ *
+ * With `odds`, an Odds tab follows the leaderboard while the event is published
+ * or in progress — the only window Front9 prices — and only when Front9 prices
+ * the event at all (tournaments, not match play).
  */
-export async function EventBody({ event }: { event: EventDetail }) {
-  const [field, sheets, boards] = await Promise.all([
+export async function EventBody({ event, odds: withOdds = false }: { event: EventDetail; odds?: boolean }) {
+  const priced = withOdds && (event.status === "published" || event.status === "in_progress");
+  const [field, sheets, boards, odds] = await Promise.all([
     getEventField(event.eventId),
     getTeeSheets(event.eventId),
     getLeaderboards(event.eventId),
+    priced ? getOdds(event.eventId) : Promise.resolve(null),
   ]);
 
   const today = localToday();
@@ -53,6 +62,13 @@ export async function EventBody({ event }: { event: EventDetail }) {
       ),
     },
   ];
+  if (odds) {
+    tabs.push({
+      key: "odds",
+      label: "Odds",
+      panel: <OddsPanel odds={odds} streamUrl={oddsStreamUrl(event.eventId)} />,
+    });
+  }
 
   return <EventTabs tabs={tabs} initial={live || scored ? "leaderboard" : "overview"} />;
 }

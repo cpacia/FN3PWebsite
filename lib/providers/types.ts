@@ -291,3 +291,32 @@ export interface StandingsContribution {
   /** Front9's numeric event id, for resolving `href`. */
   front9EventId: number | null;
 }
+
+/**
+ * One entrant's simulated win/finish chances (Front9): a player, or a team in a
+ * team format, where `name` is the team name. Odds are American money lines
+ * (+450 / -120); percentages are probabilities 0–1. Null when not priced.
+ */
+export interface OddsEntrant {
+  name: string;
+  winPct: number | null;
+  top5Pct: number | null;
+  top10Pct: number | null;
+  top20Pct: number | null;
+  winOdds: number | null;
+  top5Odds: number | null;
+  top10Odds: number | null;
+  top20Odds: number | null;
+}
+
+/**
+ * An event's live odds. "unavailable" carries Front9's reason, e.g. before the
+ * field is set. Individual formats price `players`, team formats `teams`.
+ */
+export interface EventOdds {
+  status: "ok" | "unavailable";
+  competitionName: string;
+  message: string;
+  players: OddsEntrant[];
+  teams: OddsEntrant[];
+}

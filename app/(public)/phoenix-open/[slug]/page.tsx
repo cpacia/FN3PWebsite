@@ -81,7 +81,7 @@ export default async function PhoenixRoundPage({ params }: Params) {
       />
 
       <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
-        <EventBody event={event} />
+        <EventBody event={event} odds />
       </div>
 
       {(prev || next) && (

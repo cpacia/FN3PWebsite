@@ -14,10 +14,12 @@
  * FN3P org is still being created on Front9.
  */
 import { normalizeLeaderboards, type RawLeaderboardResponse } from "@/lib/leaderboard";
+import { normalizeOdds, type RawOdds } from "@/lib/odds";
 import { apiOrigin, front9OrgBase, SEASON_STANDINGS_SERIES_ID } from "./config";
 import type {
   EventCompetition,
   EventDetail,
+  EventOdds,
   EventField,
   EventRoundDetail,
   EventSummary,
@@ -1082,6 +1084,35 @@ export async function getScorecard(
   } catch {
     return null;
   }
+}
+
+/**
+ * An event's simulated win/finish odds. Null when the event has no odds at all —
+ * Front9 answers 400 for anything but a tournament — so the caller drops the
+ * tab; an "unavailable" status (field not set yet) still comes back as odds.
+ */
+export async function getOdds(slug: string): Promise<EventOdds | null> {
+  const cfg = front9OrgBase();
+  if (!cfg || !slug) return null;
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
+    slug,
+  )}/odds`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    return normalizeOdds((await res.json()) as RawOdds);
+  } catch {
+    return null;
+  }
+}
+
+/** The browser-side SSE URL for an event's live odds; CORS-open like the leaderboard's. */
+export function oddsStreamUrl(slug: string): string | null {
+  const cfg = front9OrgBase();
+  if (!cfg) return null;
+  return `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
+    slug,
+  )}/odds/stream`;
 }
 
 /**
