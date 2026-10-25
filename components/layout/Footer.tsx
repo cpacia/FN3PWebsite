@@ -50,6 +50,29 @@ export function Footer() {
               Play more golf, have fun doing it, and don&apos;t take it too
               seriously. Apparel and the FN3P Golf Tour, out of Gray, Maine.
             </p>
+            <a
+              href="https://www.instagram.com/fn3pgolf/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex items-center gap-2 text-sm text-fn-paper/70 transition-colors hover:text-fn-paper"
+            >
+              {/* Instagram glyph: rounded square, lens, flash dot. */}
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <rect x="2" y="2" width="20" height="20" rx="5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" />
+              </svg>
+              @fn3pgolf
+            </a>
             <div className="mt-7">
               <p className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-paper/50">
                 Get the drops first
