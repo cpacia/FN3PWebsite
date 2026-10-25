@@ -17,6 +17,7 @@ const COLUMNS = [
     links: [
       { href: "/tour", label: "FN3P Tour" },
       { href: "/tour#standings", label: "Tour standings" },
+      { href: "/tour/rules", label: "Tour rules" },
       { href: "/charity", label: "Charity events" },
       { href: "/indoor", label: "Indoor leagues" },
     ],

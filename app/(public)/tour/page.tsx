@@ -105,6 +105,12 @@ export default async function TourPage({
             >
               Tour membership
             </a>
+            <Link
+              href="/tour/rules"
+              className="font-display text-sm font-bold uppercase tracking-[0.12em] text-fn-ink underline underline-offset-4 hover:opacity-70"
+            >
+              Tour rules
+            </Link>
           </div>
         </div>
       </header>

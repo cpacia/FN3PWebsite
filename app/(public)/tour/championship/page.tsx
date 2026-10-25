@@ -94,6 +94,12 @@ export default async function ChampionshipPage({
                 A sub who fills in for a leg plays for the team, and their round counts the same as
                 anyone else&apos;s.
               </p>
+              <Link
+                href="/tour/rules#playoffs"
+                className="inline-block font-display text-sm font-bold uppercase tracking-[0.12em] text-fn-ink underline underline-offset-4 hover:opacity-70"
+              >
+                Playoff rules →
+              </Link>
             </div>
           </div>
 
