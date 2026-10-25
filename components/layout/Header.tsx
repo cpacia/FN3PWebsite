@@ -8,6 +8,8 @@ import { cartHref } from "@/lib/links";
 const NAV = [
   { href: "/shop", label: "Shop" },
   { href: "/tour", label: "Tour" },
+  { href: "/charity", label: "Charity" },
+  { href: "/indoor", label: "Indoor" },
   { href: "/phoenix-open", label: "Phoenix Open" },
   { href: "/the-turn", label: "The Turn" },
   { href: "/about", label: "About" },
@@ -29,7 +31,7 @@ export function Header() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex">
+        <nav className="hidden items-center gap-6 xl:gap-8 lg:flex">
           {NAV.map((item) => (
             <Link
               key={item.href}

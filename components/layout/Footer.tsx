@@ -13,12 +13,12 @@ const COLUMNS = [
     ],
   },
   {
-    title: "Tour",
+    title: "Golf",
     links: [
-      { href: "/tour", label: "Schedule" },
-      { href: "/tour/standings", label: "Standings" },
-      { href: "/tour/rules", label: "Rules" },
-      { href: "/tour/ghin", label: "GHIN Club" },
+      { href: "/tour", label: "FN3P Tour" },
+      { href: "/tour#standings", label: "Tour standings" },
+      { href: "/charity", label: "Charity events" },
+      { href: "/indoor", label: "Indoor leagues" },
     ],
   },
   {
@@ -60,7 +60,7 @@ export function Footer() {
           <div className="grid gap-8 sm:grid-cols-3">
             {COLUMNS.map((col) => (
               <div key={col.title}>
-                <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-aqua">
+                <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-accent-light">
                   {col.title}
                 </p>
                 <ul className="space-y-2.5">

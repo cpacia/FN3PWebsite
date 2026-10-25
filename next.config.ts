@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "cdn.shopify.com" },
       { protocol: "https", hostname: "api.front9.com" },
+      { protocol: "https", hostname: "api.front9.io" },
     ],
   },
 };

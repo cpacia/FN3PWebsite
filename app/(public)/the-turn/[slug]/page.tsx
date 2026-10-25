@@ -32,7 +32,7 @@ export default async function PostPage({ params }: Params) {
     <article className="mx-auto max-w-3xl px-5 py-14 lg:px-8 lg:py-20">
       <Link
         href="/the-turn"
-        className="font-display text-xs font-bold uppercase tracking-[0.16em] text-fn-deep underline underline-offset-4 hover:opacity-70"
+        className="font-display text-xs font-bold uppercase tracking-[0.16em] text-fn-accent-deep underline underline-offset-4 hover:opacity-70"
       >
         ← The Turn
       </Link>
@@ -49,7 +49,7 @@ export default async function PostPage({ params }: Params) {
       </header>
 
       {post.imageUrl && (
-        <div className="relative mt-8 aspect-16/9 overflow-hidden rounded-2xl bg-fn-aqua">
+        <div className="relative mt-8 aspect-16/9 overflow-hidden rounded-2xl bg-fn-accent">
           <Image
             src={post.imageUrl}
             alt=""

@@ -8,7 +8,7 @@ export function AnnouncementBar({ messages }: { messages: string[] }) {
   // The track is rendered twice and translated by -50%, so the loop is seamless.
   const track = [...messages, ...messages];
   return (
-    <div className="overflow-hidden border-b border-fn-ink/10 bg-fn-aqua text-fn-ink">
+    <div className="overflow-hidden border-b border-fn-ink/10 bg-fn-accent-light text-fn-ink">
       <div
         className="flex w-max gap-10 whitespace-nowrap py-2"
         style={{ animation: "fn-marquee 38s linear infinite" }}

@@ -13,13 +13,22 @@
  * empty section rather than a 500 — which is what keeps the site up while the
  * FN3P org is still being created on Front9.
  */
+import { normalizeLeaderboards, type RawLeaderboardResponse } from "@/lib/leaderboard";
 import { apiOrigin, front9OrgBase, SEASON_STANDINGS_SERIES_ID } from "./config";
 import type {
+  EventCompetition,
+  EventDetail,
+  EventField,
+  EventRoundDetail,
   EventSummary,
+  FieldPlayer,
+  League,
+  Leaderboard,
   Post,
   PostSummary,
   StandingRow,
   StandingsTable,
+  TeeSheet,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +74,8 @@ function splitLocation(summary: string): { town: string; state: string } {
 interface Front9Event {
   id: number;
   slug: string;
+  /** Set on a child event (an extra round of a parent). */
+  parentEventId?: number | null;
   title: string;
   /** Single-event payload only. */
   description?: string | null;
@@ -81,13 +92,51 @@ interface Front9Event {
   eventImageUrl: string;
   sponsorImageUrl: string;
   totalPlayers: number;
+  /** List payload only: players per team for the primary game. */
+  teamSize?: number;
   /** Single-event payload only. */
-  rounds?: {
-    name: string;
-    date: string | null;
-    startDate: string | null;
-    holes: number;
-  }[];
+  tags?: string[] | null;
+  registrationFeeMembersCents?: number | null;
+  registrationFeeNonMembersCents?: number | null;
+  menTeeId?: string | null;
+  womenTeeId?: string | null;
+  rounds?: Front9Round[];
+}
+
+interface Front9Tee {
+  teeName: string;
+  totalYards?: number;
+  parTotal?: number;
+  numberOfHoles?: number;
+  holes?: { par: number; yardage: number }[];
+}
+
+interface Front9Competition {
+  id: number;
+  primary?: boolean;
+  name: string;
+  format: string;
+  teamSize?: number;
+  handicapBasis?: string | null;
+  handicapAllowance?: { type?: string; value?: number; weights?: number[] } | null;
+  isOverlay?: boolean;
+}
+
+interface Front9Round {
+  name: string;
+  date: string | null;
+  startDate: string | null;
+  holes: number;
+  /** Which nine a 9-hole round plays. */
+  nine?: "front" | "back" | null;
+  course?: {
+    clubName?: string;
+    courseName?: string;
+    location?: { address?: string; city?: string; state?: string } | null;
+    tees?: Record<string, Front9Tee[]>;
+  } | null;
+  indoorSetup?: { vendorName?: string; vendorLabels?: Record<string, string> } | null;
+  competitions?: Front9Competition[];
 }
 
 interface Front9EventsResponse {
@@ -106,6 +155,8 @@ function toEventSummary(e: Front9Event, origin: string): EventSummary {
   return {
     eventId: e.slug,
     front9Id: e.id,
+    parentEventId: e.parentEventId ?? null,
+    teamSize: e.teamSize ?? 0,
     eventType: e.eventType ?? "",
     status: e.status,
     date: start,
@@ -144,17 +195,27 @@ function toEventSummary(e: Front9Event, origin: string): EventSummary {
 
 /**
  * Events for the org. `filter` narrows to upcoming or completed; `year` scopes to
- * a calendar year. Empty when unconfigured or on error.
+ * a calendar year; `tag` to events carrying any of the given tags; `eventSeries`
+ * to the nights linked to one league (by league slug). Empty when unconfigured
+ * or on error.
  */
 export async function listEvents(
-  opts: { filter?: "upcoming" | "completed"; year?: number; limit?: number } = {},
+  opts: {
+    filter?: "upcoming" | "completed";
+    year?: number;
+    limit?: number;
+    tag?: string[];
+    eventSeries?: string;
+  } = {},
 ): Promise<EventSummary[]> {
   const cfg = front9OrgBase();
   if (!cfg) return [];
   const qs = new URLSearchParams();
   if (opts.filter) qs.set("filter", opts.filter);
   if (opts.year != null) qs.set("year", String(opts.year));
-  qs.set("limit", String(opts.limit ?? 100));
+  for (const t of opts.tag ?? []) qs.append("tag", t);
+  if (opts.eventSeries) qs.set("eventSeries", opts.eventSeries);
+  qs.set("limit", String(opts.limit ?? 200));
   const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events?${qs}`;
   try {
     const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 300 } });
@@ -165,17 +226,6 @@ export async function listEvents(
   } catch {
     return [];
   }
-}
-
-/**
- * The next event on the schedule, or null when there isn't one. Front9 returns
- * `filter=upcoming` in date order, so this is just the head of that list — but
- * draft events are filtered out, since they're visible to the API before they're
- * meant to be announced.
- */
-export async function getNextEvent(): Promise<EventSummary | null> {
-  const events = await listEvents({ filter: "upcoming", limit: 10 });
-  return events.find((e) => e.status !== "draft") ?? null;
 }
 
 /** A single event by slug. Null when unconfigured, blank, or not found. */
@@ -224,6 +274,8 @@ interface Front9StandingsListResponse {
 interface Front9StandingsTableRow {
   position: string;
   userId: number;
+  /** Team series only: the members under the team name. */
+  membersDisplay?: string[];
   displayName: string;
   events: number;
   value: number;
@@ -257,30 +309,50 @@ async function fetchStandingsSeries(): Promise<Front9StandingSeries[]> {
 }
 
 /**
- * Pick the series the home page snippet should show: the configured id when set,
- * otherwise the first season-scoped, non-money series (i.e. season points).
+ * Pick the tour's season-points series: the configured id when set, otherwise
+ * the first season-scoped, non-money series (i.e. season points).
+ *
+ * Series that back a league are skipped by the auto-detect — the indoor leagues
+ * carry their own tables, and an indoor scramble table showing up as "the tour
+ * standings" is exactly the wrong answer.
  */
-function pickSeasonSeries(series: Front9StandingSeries[]): Front9StandingSeries | null {
-  if (series.length === 0) return null;
+function pickSeasonSeries(
+  series: Front9StandingSeries[],
+  exclude: Set<number>,
+): Front9StandingSeries | null {
   if (SEASON_STANDINGS_SERIES_ID) {
     const byId = series.find((s) => String(s.id) === SEASON_STANDINGS_SERIES_ID);
     if (byId) return byId;
   }
+  const candidates = series.filter((s) => !exclude.has(s.id));
+  if (candidates.length === 0) return null;
   return (
-    series.find((s) => s.calculationType === "season" && s.type !== "money") ??
-    series[0]
+    candidates.find((s) => s.calculationType === "season" && s.type !== "money") ??
+    candidates[0]
   );
 }
 
+function toStandingRows(rows: Front9StandingsTableRow[], isMoney: boolean): StandingRow[] {
+  return rows.map((r) => ({
+    position: r.position,
+    userId: r.userId,
+    player: r.displayName,
+    members: r.membersDisplay ?? [],
+    events: r.events,
+    value: formatStandingsValue(r.value, isMoney),
+  }));
+}
+
 /**
- * The season-points standings table, trimmed to `limit` rows for the home page
- * snippet. Null when unconfigured, when the org has no series, or on error.
+ * One series' table, scoped to its most recent started season and trimmed to
+ * `limit` rows. Null on error.
  */
-export async function getSeasonStandings(limit?: number): Promise<StandingsTable | null> {
+async function fetchSeriesTable(
+  series: Front9StandingSeries,
+  limit?: number,
+): Promise<StandingsTable | null> {
   const cfg = front9OrgBase();
   if (!cfg) return null;
-  const series = pickSeasonSeries(await fetchStandingsSeries());
-  if (!series) return null;
 
   // Season series carry their seasons; scope the table to the most recent one
   // that has actually started, so a season created in advance doesn't render an
@@ -301,13 +373,7 @@ export async function getSeasonStandings(limit?: number): Promise<StandingsTable
     const data = (await res.json()) as Front9StandingsTableResponse;
     const isMoney = (data.type ?? series.type) === "money";
     const all = data.rows ?? [];
-    const rows: StandingRow[] = (limit != null ? all.slice(0, limit) : all).map((r) => ({
-      position: r.position,
-      userId: r.userId,
-      player: r.displayName,
-      events: r.events,
-      value: formatStandingsValue(r.value, isMoney),
-    }));
+    const rows = toStandingRows(limit != null ? all.slice(0, limit) : all, isMoney);
     return {
       seriesId: series.id,
       name: data.seriesName ?? series.name,
@@ -317,6 +383,41 @@ export async function getSeasonStandings(limit?: number): Promise<StandingsTable
   } catch {
     return null;
   }
+}
+
+/** Series ids that back an indoor league — those carry their own tables. */
+async function leagueSeriesIds(): Promise<Set<number>> {
+  const leagues = await listLeagues();
+  return new Set(
+    leagues.map((l) => l.standingSeriesId).filter((id): id is number => id != null),
+  );
+}
+
+/**
+ * The season-points standings table, trimmed to `limit` rows for the home page
+ * snippet. Null when unconfigured, when the org has no series, or on error.
+ */
+export async function getSeasonStandings(limit?: number): Promise<StandingsTable | null> {
+  if (!front9OrgBase()) return null;
+  const [allSeries, leagueSeries] = await Promise.all([fetchStandingsSeries(), leagueSeriesIds()]);
+  const series = pickSeasonSeries(allSeries, leagueSeries);
+  if (!series) return null;
+  return fetchSeriesTable(series, limit);
+}
+
+/**
+ * Every tour standings table the org has (team, individual, …), skipping
+ * league-backed series. The season-points series leads; the rest keep the
+ * API's order. Tables that fail to load are dropped.
+ */
+export async function getTourStandings(): Promise<StandingsTable[]> {
+  if (!front9OrgBase()) return [];
+  const [allSeries, leagueSeries] = await Promise.all([fetchStandingsSeries(), leagueSeriesIds()]);
+  const lead = pickSeasonSeries(allSeries, leagueSeries);
+  const series = allSeries.filter((s) => !leagueSeries.has(s.id) && s.id !== lead?.id);
+  if (lead) series.unshift(lead);
+  const tables = await Promise.all(series.map((s) => fetchSeriesTable(s)));
+  return tables.filter((t): t is StandingsTable => t != null);
 }
 
 // ---------------------------------------------------------------------------
@@ -449,16 +550,13 @@ export async function subscribeToNewsletter(email: string): Promise<boolean> {
  * Start a hosted registration for an event and return the URL to redirect to.
  * Null when unconfigured or on error.
  *
- * Note: tour entry is currently sold as a Shopify product instead. This is here
- * so the CTA can be switched over per-event without new plumbing — see the
- * "Signup routing" prerequisite in docs/brand/design-directions.md.
+ * Payment never touches this site: Front9 hosts the form and the checkout.
  */
 export async function startEventRegistration(front9Id: number): Promise<string | null> {
   const cfg = front9OrgBase();
   if (!cfg) return null;
-  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
-    String(front9Id),
-  )}/register/start`;
+  // Not org-scoped: the event id alone identifies it.
+  const url = `${cfg.apiUrl}/events/${encodeURIComponent(String(front9Id))}/register/start`;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -466,6 +564,440 @@ export async function startEventRegistration(front9Id: number): Promise<string |
       body: JSON.stringify({}),
       cache: "no-store",
     });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { url?: string };
+    return data.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Event detail
+// ---------------------------------------------------------------------------
+
+/** Single-hole contests: printed as side games, not as the event's format. */
+const CONTEST_FORMATS = new Set(["closest_to_pin", "long_drive"]);
+
+/** "Gross", "90% handicap", "35% / 15% of handicaps", or "". */
+function allowanceLabel(c: Front9Competition): string {
+  if (CONTEST_FORMATS.has(c.format)) return "";
+  if (c.handicapBasis === "gross") return "Gross";
+  const a = c.handicapAllowance;
+  if (a?.weights?.length) return `${a.weights.map((w) => `${w}%`).join(" / ")} of handicaps`;
+  if (typeof a?.value === "number") return `${a.value}% handicap`;
+  return "";
+}
+
+/** Front9's vendor setting keys, in the words a golfer would use. */
+const SIM_LABELS: Record<string, string> = {
+  wind: "Wind",
+  green_speed: "Green speed",
+  green_firmness: "Greens",
+  fairway_firmness: "Fairways",
+  gimme: "Gimme",
+  pin_difficulty: "Pins",
+  putting_mode: "Putting",
+  elevation: "Elevation",
+};
+
+function simSettings(labels: Record<string, string>): { label: string; value: string }[] {
+  return Object.entries(labels).map(([k, v]) => ({
+    label: SIM_LABELS[k] ?? k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()),
+    value: k === "gimme" && /^\d+$/.test(v) ? `${v} ft` : v,
+  }));
+}
+
+/** The event's men's tee on this round (falling back to the first listed), totalled over the holes played. */
+function roundTee(
+  round: Front9Round,
+  wanted: string[],
+): EventRoundDetail["tee"] {
+  const groups = round.course?.tees ?? {};
+  const all = Object.values(groups).flat();
+  const tee = all.find((t) => wanted.includes(t.teeName.toLowerCase())) ?? all[0];
+  if (!tee) return null;
+  const holes = tee.holes ?? [];
+  if (holes.length === 0) {
+    return { name: tee.teeName, par: tee.parTotal ?? 0, yards: tee.totalYards ?? 0 };
+  }
+  const offset = round.holes < 18 && round.nine === "back" ? 9 : 0;
+  const played = holes.slice(offset, offset + Math.min(round.holes || 18, holes.length));
+  return {
+    name: tee.teeName,
+    par: played.reduce((n, h) => n + h.par, 0),
+    yards: played.reduce((n, h) => n + h.yardage, 0),
+  };
+}
+
+function toRoundDetail(r: Front9Round, wantedTees: string[]): EventRoundDetail {
+  const loc = r.course?.location;
+  // Simulator courses come back with a region for an address ("California, US").
+  const address = r.indoorSetup ? "" : (loc?.address ?? "").trim();
+  const competitions: EventCompetition[] = (r.competitions ?? [])
+    .filter((c) => !c.isOverlay)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      format: c.format,
+      teamSize: c.teamSize ?? 1,
+      primary: !!c.primary,
+      isContest: CONTEST_FORMATS.has(c.format),
+      allowance: allowanceLabel(c),
+    }));
+  return {
+    name: r.name ?? "",
+    date: (r.date ?? r.startDate ?? "").slice(0, 10),
+    holes: r.holes ?? 0,
+    club: (r.course?.clubName ?? "").trim(),
+    address,
+    tee: roundTee(r, wantedTees),
+    sim: r.indoorSetup
+      ? {
+          vendor: r.indoorSetup.vendorName ?? "",
+          settings: simSettings(r.indoorSetup.vendorLabels ?? {}),
+        }
+      : null,
+    competitions,
+  };
+}
+
+/** A single event with everything its page shows. Null when unconfigured or not found. */
+export async function getEventDetail(slug: string): Promise<EventDetail | null> {
+  const cfg = front9OrgBase();
+  const s = slug.trim();
+  if (!cfg || !s) return null;
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(s)}`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    const e = (await res.json()) as Front9Event;
+    const summary = toEventSummary(e, apiOrigin(cfg.apiUrl));
+    const wanted = [e.menTeeId, e.womenTeeId]
+      .filter((t): t is string => !!t)
+      .map((t) => t.toLowerCase());
+    const roundDetails = (e.rounds ?? []).map((r) => toRoundDetail(r, wanted));
+    const primary =
+      roundDetails[0]?.competitions.find((c) => c.primary) ?? roundDetails[0]?.competitions[0];
+    return {
+      ...summary,
+      tags: e.tags ?? [],
+      feeMembersCents: e.registrationFeeMembersCents ?? null,
+      feeNonMembersCents: e.registrationFeeNonMembersCents ?? null,
+      teamSize: primary?.teamSize ?? 1,
+      roundDetails,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Field, tee sheets, leaderboards
+// ---------------------------------------------------------------------------
+
+interface Front9Player {
+  playerId: number;
+  userId: number;
+  firstName: string;
+  lastName: string;
+  city?: string | null;
+  state?: string | null;
+  handicapIndex?: number | null;
+  imageUrl?: string | null;
+  waitlistPosition?: number | null;
+}
+
+interface Front9FieldResponse {
+  isTeamEvent?: boolean;
+  teamSize?: number;
+  players?: Front9Player[];
+  teams?: { name?: string | null; players?: Front9Player[] }[];
+}
+
+/** Handicap indexes below zero are plus handicaps, written "+1.3". */
+function formatHandicap(h: number | null | undefined): string {
+  if (h == null || Number.isNaN(h)) return "";
+  return h < 0 ? `+${Math.abs(h).toFixed(1)}` : h.toFixed(1);
+}
+
+function toFieldPlayer(p: Front9Player, origin: string): FieldPlayer {
+  return {
+    playerId: p.playerId,
+    userId: p.userId,
+    name: `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(),
+    hometown: [p.city, p.state].filter(Boolean).join(", "),
+    handicap: formatHandicap(p.handicapIndex),
+    imageUrl: resolveImage(p.imageUrl ?? "", origin),
+    waitlistPosition: p.waitlistPosition ?? null,
+  };
+}
+
+const EMPTY_FIELD: EventField = { isTeamEvent: false, teamSize: 0, players: [], teams: [] };
+
+/** The registered field. Team events come grouped; unnamed teams are named by surname. */
+export async function getEventField(slug: string): Promise<EventField> {
+  const cfg = front9OrgBase();
+  if (!cfg || !slug) return EMPTY_FIELD;
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
+    slug,
+  )}/players?limit=500`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 60 } });
+    if (!res.ok) return EMPTY_FIELD;
+    const data = (await res.json()) as Front9FieldResponse;
+    const origin = apiOrigin(cfg.apiUrl);
+    return {
+      isTeamEvent: !!data.isTeamEvent,
+      teamSize: data.teamSize ?? 0,
+      players: (data.players ?? []).map((p) => toFieldPlayer(p, origin)),
+      teams: (data.teams ?? []).map((t) => {
+        const players = (t.players ?? []).map((p) => toFieldPlayer(p, origin));
+        return {
+          name: (t.name ?? "").trim() || players.map((p) => p.name.split(" ").pop()).join(" / "),
+          players,
+        };
+      }),
+    };
+  } catch {
+    return EMPTY_FIELD;
+  }
+}
+
+type Front9TeeSheetPlayer = { firstName: string; lastName: string; tee?: string | null } | null;
+
+interface Front9TeeSheetsResponse {
+  teeSheets?: {
+    round: number;
+    slots?: {
+      position: number;
+      bay?: number | null;
+      date?: string | null;
+      time?: string | null;
+      startingHole?: number | null;
+      shotgunGroup?: string | null;
+      courseName?: string;
+      player1?: Front9TeeSheetPlayer;
+      player2?: Front9TeeSheetPlayer;
+      player3?: Front9TeeSheetPlayer;
+      player4?: Front9TeeSheetPlayer;
+    }[];
+  }[];
+}
+
+/** "19:30" → "7:30 PM"; "" for blanks. */
+function clockTime(hhmm: string | null | undefined): string {
+  const m = (hhmm ?? "").match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return "";
+  const h = Number(m[1]);
+  return `${((h + 11) % 12) + 1}:${m[2]} ${h >= 12 ? "PM" : "AM"}`;
+}
+
+/** Published tee sheets, one per round, slots in tee order. Unpublished rounds are absent. */
+export async function getTeeSheets(slug: string): Promise<TeeSheet[]> {
+  const cfg = front9OrgBase();
+  if (!cfg || !slug) return [];
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
+    slug,
+  )}/tee-sheets`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 60 } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as Front9TeeSheetsResponse;
+    return (data.teeSheets ?? []).map((sheet) => {
+      const slots = [...(sheet.slots ?? [])].sort(
+        (a, b) => (a.time ?? "").localeCompare(b.time ?? "") || a.position - b.position,
+      );
+      return {
+        round: sheet.round,
+        date: (slots.find((s) => s.date)?.date ?? "").slice(0, 10),
+        slots: slots.map((s) => ({
+          time: clockTime(s.time),
+          where:
+            s.bay != null
+              ? `Bay ${s.bay}`
+              : s.startingHole != null && s.startingHole !== 1
+                ? `Hole ${s.startingHole}${s.shotgunGroup ?? ""}`
+                : "",
+          course: s.courseName ?? "",
+          players: [s.player1, s.player2, s.player3, s.player4]
+            .filter((p): p is NonNullable<Front9TeeSheetPlayer> => !!p)
+            .map((p) => ({ name: `${p.firstName} ${p.lastName}`.trim(), tee: p.tee ?? "" })),
+        })),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Every competition's board for an event. Empty when nothing is posted or on error. */
+export async function getLeaderboards(slug: string): Promise<Leaderboard[]> {
+  const cfg = front9OrgBase();
+  if (!cfg || !slug) return [];
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
+    slug,
+  )}/leaderboard`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 30 } });
+    if (!res.ok) return [];
+    return normalizeLeaderboards((await res.json()) as RawLeaderboardResponse);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The browser-side SSE URL for an event's live leaderboard. The stream is public
+ * and CORS-open, so the client connects to Front9 directly; every frame is the
+ * same JSON as the leaderboard endpoint. Null when unconfigured.
+ */
+export function leaderboardStreamUrl(slug: string): string | null {
+  const cfg = front9OrgBase();
+  if (!cfg) return null;
+  return `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
+    slug,
+  )}/leaderboard/stream`;
+}
+
+// ---------------------------------------------------------------------------
+// Leagues (indoor)
+// ---------------------------------------------------------------------------
+
+/** One league in `GET /orgs/:slug/event-series`; the single-league payload is the same shape. */
+interface Front9League {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  seasonLabel?: string | null;
+  scheduleLabel?: string | null;
+  status: League["status"];
+  startDate?: string | null;
+  endDate?: string | null;
+  feeMembersCents?: number | null;
+  feeNonMembersCents?: number | null;
+  feePerEntry?: boolean;
+  registrationOpensAt?: string | null;
+  registrationClosesAt?: string | null;
+  maxEntries?: number | null;
+  entrySize?: number;
+  standingSeriesId?: number | null;
+  seriesImageUrl?: string | null;
+  memberCount?: number;
+  waitlistCount?: number;
+  isFull?: boolean;
+  linkedEventCount?: number;
+}
+
+function toLeague(l: Front9League, origin: string): League {
+  return {
+    id: l.id,
+    slug: l.slug,
+    name: (l.name ?? "").trim(),
+    description: (l.description ?? "").trim(),
+    seasonLabel: (l.seasonLabel ?? "").trim(),
+    scheduleLabel: (l.scheduleLabel ?? "").trim(),
+    status: l.status,
+    startDate: (l.startDate ?? "").slice(0, 10),
+    endDate: (l.endDate ?? "").slice(0, 10),
+    feeMembersCents: l.feeMembersCents ?? null,
+    feeNonMembersCents: l.feeNonMembersCents ?? null,
+    feePerEntry: !!l.feePerEntry,
+    entrySize: l.entrySize ?? 1,
+    registrationOpensAt: (l.registrationOpensAt ?? "").slice(0, 10),
+    registrationClosesAt: (l.registrationClosesAt ?? "").slice(0, 10),
+    maxEntries: l.maxEntries ?? null,
+    memberCount: l.memberCount ?? 0,
+    waitlistCount: l.waitlistCount ?? 0,
+    isFull: !!l.isFull,
+    imageUrl: resolveImage(l.seriesImageUrl ?? "", origin),
+    linkedEventCount: l.linkedEventCount ?? 0,
+    standingSeriesId: l.standingSeriesId ?? null,
+  };
+}
+
+/** The org's public leagues, newest season first. Drafts and private leagues are omitted. */
+export async function listLeagues(): Promise<League[]> {
+  const cfg = front9OrgBase();
+  if (!cfg) return [];
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/event-series`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 300 } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as Front9League[] | null;
+    const origin = apiOrigin(cfg.apiUrl);
+    return (data ?? []).map((l) => toLeague(l, origin));
+  } catch {
+    return [];
+  }
+}
+
+/** One league by slug; null when unknown, private, still a draft, or on error. */
+export async function getLeague(slug: string): Promise<League | null> {
+  const cfg = front9OrgBase();
+  if (!cfg || !slug) return null;
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/event-series/${encodeURIComponent(
+    slug,
+  )}`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    return toLeague((await res.json()) as Front9League, apiOrigin(cfg.apiUrl));
+  } catch {
+    return null;
+  }
+}
+
+interface Front9LeagueStandingsResponse {
+  standingSeries?: { id: number; name: string; type?: string; scope?: string } | null;
+  table?: {
+    seriesId: number;
+    seriesName?: string;
+    type?: string;
+    rows?: Front9StandingsTableRow[];
+  } | null;
+}
+
+/**
+ * A league's standings table, addressed by league slug. Null when the league has
+ * no table linked yet (Front9 answers 200 with both fields null) or on error.
+ */
+export async function getLeagueStandings(slug: string): Promise<StandingsTable | null> {
+  const cfg = front9OrgBase();
+  if (!cfg || !slug) return null;
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/event-series/${encodeURIComponent(
+    slug,
+  )}/standings`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 120 } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as Front9LeagueStandingsResponse;
+    if (!data.table) return null;
+    const isMoney = (data.table.type ?? data.standingSeries?.type) === "money";
+    return {
+      seriesId: data.table.seriesId,
+      name: data.table.seriesName ?? data.standingSeries?.name ?? "",
+      isMoney,
+      rows: toStandingRows(data.table.rows ?? [], isMoney),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Start a hosted league registration — one payment for the whole season — and
+ * return the URL to redirect to. Null when unconfigured or on error.
+ */
+export async function startLeagueRegistration(leagueId: number): Promise<string | null> {
+  const cfg = front9OrgBase();
+  if (!cfg) return null;
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/event-series/${encodeURIComponent(
+    String(leagueId),
+  )}/register/start`;
+  try {
+    const res = await fetch(url, { method: "POST", headers: ACCEPT_JSON, cache: "no-store" });
     if (!res.ok) return null;
     const data = (await res.json()) as { url?: string };
     return data.url ?? null;

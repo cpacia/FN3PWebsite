@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { ButtonLink } from "@/components/ui/Button";
 import { PrintPanel } from "@/components/ui/PrintPanel";
 import { StickerBadge } from "@/components/ui/StickerBadge";
+import { getPrintTheme, printThemeVars } from "@/lib/print-theme";
 
 /**
  * Branded 404.
@@ -16,14 +17,15 @@ import { StickerBadge } from "@/components/ui/StickerBadge";
  * Phoenix signup page), so this is where a lot of clicks currently land.
  */
 export default function NotFound() {
+  const theme = getPrintTheme();
   return (
-    <>
+    <div style={printThemeVars(theme)}>
       <Header />
       <main>
         <PrintPanel className="flex min-h-[60vh] items-center px-5 py-20 lg:px-8">
           <div className="mx-auto w-full max-w-7xl">
             <div className="max-w-xl rounded-3xl bg-fn-paper p-10 shadow-[0_24px_70px_-30px_rgba(11,79,99,0.55)] sm:p-14">
-              <StickerBadge tone="aqua" className="mb-6">
+              <StickerBadge tone="accent" className="mb-6">
                 Lost ball
               </StickerBadge>
               <h1 className="font-display text-5xl font-black uppercase leading-none text-fn-ink sm:text-6xl">
@@ -46,6 +48,6 @@ export default function NotFound() {
         </PrintPanel>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

@@ -64,6 +64,10 @@ export interface EventSummary {
   maxPlayers: number | null;
   /** Entrants so far, for the "spots left" line on the home page. */
   totalPlayers: number;
+  /** Players per team from the list payload; 0 or 1 for individual events. */
+  teamSize: number;
+  /** Set on a child event (an extra round); those are folded away in schedules. */
+  parentEventId: number | null;
   rounds: EventRound[];
 }
 
@@ -72,6 +76,8 @@ export interface StandingRow {
   position: string;
   userId: number;
   player: string;
+  /** Team series: the members under the team name. Empty for individuals. */
+  members: string[];
   events: number;
   /** Display-formatted: "896.2" for points, "$1,411" for money. */
   value: string;
@@ -83,4 +89,126 @@ export interface StandingsTable {
   name: string;
   isMoney: boolean;
   rows: StandingRow[];
+}
+
+/** One competition (a scoring game) within a round — "Scramble", "Skins", "Closest to the Pin". */
+export interface EventCompetition {
+  id: number;
+  name: string;
+  /** Front9 format key: "stroke_play" | "scramble" | "skins" | "closest_to_pin" | … */
+  format: string;
+  /** 1 for individual games; the team size otherwise. */
+  teamSize: number;
+  primary: boolean;
+  /** Long drive / closest to the pin: a single-hole contest, not a scoring game. */
+  isContest: boolean;
+  /** "Gross", "90% handicap", or "" when unstated. */
+  allowance: string;
+}
+
+/** One round of an event, with the course details the overview tab prints. */
+export interface EventRoundDetail {
+  name: string;
+  /** "YYYY-MM-DD", or "" when the round is undated (simulator league weeks). */
+  date: string;
+  holes: number;
+  club: string;
+  /** Street address for outdoor courses; "" when Front9 only has a region. */
+  address: string;
+  /** The event's men's tee, when the course carries it. */
+  tee: { name: string; par: number; yards: number } | null;
+  /** Simulator rounds: the vendor ("Trackman") and its course settings. */
+  sim: { vendor: string; settings: { label: string; value: string }[] } | null;
+  competitions: EventCompetition[];
+}
+
+/** The single-event payload: the summary plus what only an event page needs. */
+export interface EventDetail extends EventSummary {
+  tags: string[];
+  /** Entry fee in cents; null when the event doesn't publish one. */
+  feeMembersCents: number | null;
+  feeNonMembersCents: number | null;
+  /** Players per team for the primary game; 1 for individual events. */
+  teamSize: number;
+  roundDetails: EventRoundDetail[];
+}
+
+/** A registered player, as the field and team lists show them. */
+export interface FieldPlayer {
+  playerId: number;
+  userId: number;
+  name: string;
+  hometown: string;
+  /** Formatted index ("4.2", "+1.3"); "" when unknown. */
+  handicap: string;
+  imageUrl: string;
+  /** Set while the player is on the waitlist. */
+  waitlistPosition: number | null;
+}
+
+export interface EventField {
+  isTeamEvent: boolean;
+  teamSize: number;
+  players: FieldPlayer[];
+  teams: { name: string; players: FieldPlayer[] }[];
+}
+
+/** One tee time (or simulator bay) on a published sheet. */
+export interface TeeTimeSlot {
+  /** "8:10 AM", or "" when the sheet has no times (shotgun). */
+  time: string;
+  /** "Bay 2", "Hole 10", or "" for a plain first-tee start. */
+  where: string;
+  course: string;
+  players: { name: string; tee: string }[];
+}
+
+export interface TeeSheet {
+  round: number;
+  date: string;
+  slots: TeeTimeSlot[];
+}
+
+export interface LeaderboardTable {
+  label: string;
+  columns: { key: string; label: string }[];
+  rows: Record<string, string | number | boolean | null>[];
+}
+
+/** One competition's board. An event can run several at once (net, skins, contests). */
+export interface Leaderboard {
+  competitionName: string;
+  format: string;
+  competitionIds: number[];
+  tables: LeaderboardTable[];
+}
+
+/** A season-long league (Front9 "event series") — the indoor sim leagues. */
+export interface League {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  /** Free text set by the organizer, e.g. "2-man Scramble". */
+  seasonLabel: string;
+  /** Free text, never parsed: "Nov 7th - December 20th". */
+  scheduleLabel: string;
+  status: "draft" | "open" | "active" | "completed" | "canceled";
+  startDate: string;
+  endDate: string;
+  feeMembersCents: number | null;
+  feeNonMembersCents: number | null;
+  /** True when the fee buys a whole team entry rather than one golfer's seat. */
+  feePerEntry: boolean;
+  /** 1 for an individual league; 2+ for declared teams. */
+  entrySize: number;
+  registrationOpensAt: string;
+  registrationClosesAt: string;
+  maxEntries: number | null;
+  memberCount: number;
+  waitlistCount: number;
+  isFull: boolean;
+  imageUrl: string;
+  linkedEventCount: number;
+  standingSeriesId: number | null;
 }

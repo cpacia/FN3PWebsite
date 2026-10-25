@@ -21,9 +21,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
       className="group block"
     >
       <div
-        className="relative aspect-4/5 overflow-hidden rounded-2xl bg-fn-aqua"
+        className="relative aspect-4/5 overflow-hidden rounded-2xl bg-fn-accent"
         style={{
-          backgroundImage: "url(/patterns/palm-aqua-sm.webp)",
+          backgroundImage: "var(--print-sm)",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -37,7 +37,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             className="object-contain p-5 transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center font-display text-sm font-bold uppercase tracking-widest text-fn-deep/50">
+          <div className="flex h-full items-center justify-center font-display text-sm font-bold uppercase tracking-widest text-fn-ink/40">
             FN3P
           </div>
         )}

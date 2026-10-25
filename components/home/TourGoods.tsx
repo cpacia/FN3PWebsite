@@ -34,7 +34,7 @@ export function TourGoods({ products }: { products: ProductCardData[] }) {
               key={p.handle}
               href={productHref(p.handle)}
               {...external}
-              className="group flex flex-col justify-between border-2 border-fn-ink bg-fn-paper p-7 transition-colors hover:bg-fn-aqua-light"
+              className="group flex flex-col justify-between border-2 border-fn-ink bg-fn-paper p-7 transition-colors hover:bg-fn-accent-light"
             >
               <div>
                 <h3 className="font-display text-2xl font-extrabold uppercase leading-tight text-fn-ink">
@@ -48,7 +48,7 @@ export function TourGoods({ products }: { products: ProductCardData[] }) {
                 <span className="tabular font-display text-2xl font-black text-fn-ink">
                   {p.price}
                 </span>
-                <span className="font-display text-xs font-bold uppercase tracking-[0.14em] text-fn-deep underline underline-offset-4">
+                <span className="font-display text-xs font-bold uppercase tracking-[0.14em] text-fn-accent-deep underline underline-offset-4">
                   {p.availableForSale ? "Sign up →" : "Sold out"}
                 </span>
               </div>

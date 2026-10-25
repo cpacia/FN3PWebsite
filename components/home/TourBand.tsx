@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
+import { eventPath, registrationState } from "@/lib/golf";
 import { formatDate } from "@/lib/seo";
-import type { EventSummary, StandingsTable } from "@/lib/providers/types";
+import type { EventSummary } from "@/lib/providers/types";
 
 /**
  * The tour band — the data register.
@@ -14,13 +15,12 @@ import type { EventSummary, StandingsTable } from "@/lib/providers/types";
 export function TourBand({
   nextEvent,
   schedule,
-  standings,
-  isPlaceholder,
+  season,
 }: {
   nextEvent: EventSummary | null;
+  /** The tour events of `season`, in date order. */
   schedule: EventSummary[];
-  standings: StandingsTable | null;
-  isPlaceholder: boolean;
+  season: number;
 }) {
   if (!nextEvent && schedule.length === 0) return null;
 
@@ -50,10 +50,10 @@ export function TourBand({
         </div>
 
         <div className="grid min-w-0 gap-10 lg:grid-cols-[1.1fr_1fr]">
-          {/* Next event */}
-          {nextEvent && (
+          {/* Next event, or the season recap once the schedule has run out */}
+          {nextEvent ? (
             <div className="min-w-0">
-              <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-deep">
+              <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-accent-deep">
                 Next event
               </p>
               <div className="relative border-2 border-fn-ink bg-fn-paper p-7">
@@ -76,56 +76,52 @@ export function TourBand({
                   </p>
                 )}
 
-                {/*
-                  * Entry counts are only shown for live Front9 data. The
-                  * placeholder has no roster, and rendering "0/40 · 40 spots
-                  * left" would state something we don't actually know.
-                  */}
-                {!isPlaceholder && (
-                  <dl className="tabular mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-fn-line pt-5 text-sm">
-                    <div>
-                      <dt className="text-xs uppercase tracking-[0.14em] text-fn-ink-soft">
-                        Field
-                      </dt>
-                      <dd className="mt-0.5 font-display text-lg font-bold text-fn-ink">
-                        {nextEvent.maxPlayers != null
-                          ? `${nextEvent.totalPlayers}/${nextEvent.maxPlayers}`
-                          : "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs uppercase tracking-[0.14em] text-fn-ink-soft">
-                        {spotsLeft != null ? "Spots left" : "Status"}
-                      </dt>
-                      <dd className="mt-0.5 font-display text-lg font-bold text-fn-ink">
-                        {spotsLeft != null ? spotsLeft : "Open"}
-                      </dd>
-                    </div>
-                  </dl>
-                )}
+                <dl className="tabular mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-fn-line pt-5 text-sm">
+                  <div>
+                    <dt className="text-xs uppercase tracking-[0.14em] text-fn-ink-soft">
+                      Field
+                    </dt>
+                    <dd className="mt-0.5 font-display text-lg font-bold text-fn-ink">
+                      {nextEvent.maxPlayers != null
+                        ? `${nextEvent.totalPlayers}/${nextEvent.maxPlayers}`
+                        : nextEvent.totalPlayers}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-[0.14em] text-fn-ink-soft">
+                      {spotsLeft != null ? "Spots left" : "Entry"}
+                    </dt>
+                    <dd className="mt-0.5 font-display text-lg font-bold text-fn-ink">
+                      {spotsLeft != null ? spotsLeft : registrationShort(nextEvent)}
+                    </dd>
+                  </div>
+                </dl>
 
                 <div className="mt-6 border-t border-fn-line pt-5">
-                  <ButtonLink href="/tour">
+                  <ButtonLink href={eventPath("tour", nextEvent.eventId)}>
                     {nextEvent.registrationOpen ? "Enter this event" : "Event details"}
                   </ButtonLink>
                 </div>
               </div>
             </div>
+          ) : (
+            <SeasonWrap schedule={schedule} season={season} />
           )}
 
-          {/* Schedule + standings */}
-          <div className="min-w-0 space-y-10">
+          {/* Schedule */}
+          <div className="min-w-0">
             {schedule.length > 0 && (
               <div>
-                <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-deep">
-                  2026 season
+                <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-accent-deep">
+                  {season} season
                 </p>
                 <ol className="tabular divide-y divide-fn-line border-y border-fn-line">
                   {schedule.map((e, i) => (
-                    <li
-                      key={e.eventId}
-                      className="flex items-baseline gap-4 py-2.5 text-sm"
-                    >
+                    <li key={e.eventId}>
+                      <Link
+                        href={eventPath("tour", e.eventId)}
+                        className="flex items-baseline gap-4 py-2.5 text-sm transition-colors hover:bg-fn-paper"
+                      >
                       <span className="w-6 shrink-0 text-xs font-semibold text-fn-ink-soft">
                         {String(i + 1).padStart(2, "0")}
                       </span>
@@ -138,57 +134,10 @@ export function TourBand({
                       <span className="shrink-0 text-xs text-fn-ink-soft">
                         {e.state}
                       </span>
+                      </Link>
                     </li>
                   ))}
                 </ol>
-                {isPlaceholder && (
-                  // Honest about provenance while the Front9 org is pending —
-                  // better than silently presenting transcribed data as live.
-                  <p className="mt-3 text-xs italic text-fn-ink-soft">
-                    Schedule shown from the current site; live results arrive with
-                    the Front9 season.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {standings && standings.rows.length > 0 && (
-              <div>
-                <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-deep">
-                  {standings.name}
-                </p>
-                <table className="tabular w-full border-y border-fn-line text-sm">
-                  <thead>
-                    <tr className="text-left text-xs uppercase tracking-[0.14em] text-fn-ink-soft">
-                      <th scope="col" className="py-2 font-semibold">
-                        Pos
-                      </th>
-                      <th scope="col" className="py-2 font-semibold">
-                        Player
-                      </th>
-                      <th scope="col" className="py-2 text-right font-semibold">
-                        {standings.isMoney ? "Money" : "Points"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-fn-line">
-                    {standings.rows.map((r) => (
-                      <tr key={r.userId}>
-                        <td className="py-2 pr-3 text-fn-ink-soft">{r.position}</td>
-                        <td className="py-2 pr-3 font-medium text-fn-ink">{r.player}</td>
-                        <td className="py-2 text-right font-semibold text-fn-ink">
-                          {r.value}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <Link
-                  href="/tour/standings"
-                  className="mt-3 inline-block text-xs font-semibold uppercase tracking-[0.14em] text-fn-deep underline underline-offset-4"
-                >
-                  Full standings →
-                </Link>
               </div>
             )}
           </div>
@@ -196,4 +145,77 @@ export function TourBand({
       </div>
     </section>
   );
+}
+
+/**
+ * Stands in for the next-event card when nothing is left on the calendar, so
+ * the band keeps its two columns through the offseason instead of collapsing
+ * to a lone schedule list. Same frame as the event card; the facts are the
+ * season's rather than one event's.
+ */
+function SeasonWrap({ schedule, season }: { schedule: EventSummary[]; season: number }) {
+  const played = schedule.filter((e) => e.status !== "canceled");
+  const finale = played.at(-1) ?? null;
+
+  return (
+    <div className="min-w-0">
+      <p className="mb-4 font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-accent-deep">
+        Offseason
+      </p>
+      <div className="relative border-2 border-fn-ink bg-fn-paper p-7">
+        <span
+          aria-hidden
+          className="absolute bottom-0 right-0 h-5 w-5 bg-fn-ink"
+          style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
+        />
+        <p className="tabular text-sm font-semibold uppercase tracking-[0.14em] text-fn-ink-soft">
+          {season} season · Final
+        </p>
+        <h3 className="mt-2 font-display text-3xl font-extrabold uppercase leading-tight text-fn-ink">
+          That&apos;s a wrap
+        </h3>
+        <p className="mt-1 text-sm text-fn-ink-soft">
+          The {season + 1} schedule is coming. Thanks to everyone who teed it up this year.
+        </p>
+
+        <dl className="tabular mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-fn-line pt-5 text-sm">
+          <div>
+            <dt className="text-xs uppercase tracking-[0.14em] text-fn-ink-soft">
+              Events played
+            </dt>
+            <dd className="mt-0.5 font-display text-lg font-bold text-fn-ink">
+              {played.length}
+            </dd>
+          </div>
+          {finale && (
+            <div className="min-w-0">
+              <dt className="text-xs uppercase tracking-[0.14em] text-fn-ink-soft">
+                Season finale
+              </dt>
+              <dd className="mt-0.5 truncate font-display text-lg font-bold text-fn-ink">
+                {finale.course || finale.name}
+              </dd>
+            </div>
+          )}
+        </dl>
+
+        <div className="mt-6 flex flex-wrap gap-3 border-t border-fn-line pt-5">
+          {finale && (
+            <ButtonLink href={eventPath("tour", finale.eventId)}>Final results</ButtonLink>
+          )}
+          <ButtonLink href="/tour" variant="outline">
+            Season recap
+          </ButtonLink>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** "Open", "Opens Mar 1", or "Closed" — the one-word entry status for the stat grid. */
+function registrationShort(e: EventSummary): string {
+  const r = registrationState(e);
+  if (r.state === "open") return "Open";
+  if (r.state === "soon") return `Opens ${formatDate(r.opens, { year: undefined })}`;
+  return "Closed";
 }

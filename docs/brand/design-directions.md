@@ -135,12 +135,67 @@ Deliberately avoiding Montserrat/Lora/Bricolage since those are LFG's.
   and buttons.
 - Rounded `2xl` cards floating on print panels; ink-on-white rows in the data register.
 
-### Seasonal mode (the offseason pivot, built in from day one)
+### Seasonal mode (the offseason pivot)
 
-`lib/season.ts` exports `getSeasonMode(): "tour" | "apparel"` — date-driven (tour Apr–Oct, apparel
-Nov–Mar) with a `SEASON_MODE_OVERRIDE` env var to force either for testing and manual control. The
-home page hero, the section order below the fold, and the announcement-bar message all read from it.
-Everything else is shared, so this stays a small, well-contained switch rather than two home pages.
+Two independent switches, so a drop can change the look without also reordering the page:
+
+**Content — `lib/season.ts`.** `getSeasonMode(): "tour" | "apparel"`, date-driven (tour Apr–Oct,
+apparel Nov–Mar), with `SEASON_MODE_OVERRIDE` to pin it. Drives the hero's lead and CTA order, the
+order of the drop/tour blocks, and the announcement bar.
+
+**Look — `lib/print-theme.ts`.** This is where the direction actually pays off. The print itself
+changes, and the surrounding palette changes with it:
+
+| | In season | Offseason |
+|---|---|---|
+| Print | `palm-aqua` — resort | `lone-pine` — Maine (`casco-bay` also in this family, override-only) |
+| Band ground | aqua `#84d7e7` | spruce `#1f3d2b` |
+| Card ground | pale aqua `#c3eaef` | granite `#cfd8c9` |
+| Tiles | aqua / seafoam / sand / pistachio | pine / sage / sand / navy |
+
+The catalogue already splits into exactly these two families — resort (Vaca Mode, Havana, Spicy Marg,
+the palm) and Maine (Lone Pine, The Granite, Black Bear, Sebago). So the seasonal shift isn't a hue
+rotation on one print, it's a different print family, and the Maine/resort tension in the line stops
+being a problem to resolve and becomes the mechanism.
+
+**How it's wired.** No component knows a pattern path or a hue. `printThemeVars()` sets the theme as
+CSS variables once on the `(public)` layout wrapper — `--print-lg`, `--print-sm`,
+`--color-fn-accent{,-light,-deep}`, `--tile-N`/`--tile-N-on` — and every surface inherits them.
+`--color-fn-accent*` are declared in `@theme` so Tailwind generates `bg-fn-accent` etc., then
+overridden per season downstream. **Adding a print is an entry in `PRINT_THEMES` plus two image
+files.** `PRINT_THEME_OVERRIDE` pins a print independently of the content mode.
+
+Two things the build taught us here:
+
+- **Bands and cards don't have to share a colourway.** A dark ground makes the hero feel like winter
+  but swallows dark garments — the green polos disappeared into spruce. So `print.src` (bands) runs
+  dark while `print.srcSm` (cards) runs light. The split already existed for file size; it turned out
+  to matter more for contrast.
+- **Tile label colours are declared, not derived.** The palette spans pale sand to deep spruce, so a
+  `mix-blend-difference` label picks arbitrary hues off whatever it lands on (pink on green, tan on
+  navy). Each tile names `on: "ink" | "paper"` instead.
+
+The offseason print currently shipped is a **placeholder**: the palm artwork recoloured onto a
+spruce/granite ramp, which reads convincingly as balsam because the frond shape is generic enough.
+Real Maine artwork (Lone Pine, The Granite) should replace it — swap the two files and the hexes in
+`PRINT_THEMES["lone-pine"]`, nothing else.
+
+**`casco-bay` — the first real print in the library.** `banner2.png` in the repo root is a
+hand-painted wave print (Hokusai-lineage breaking surf, painted two-tone in pale lavender on white).
+It's the same two-tone structure the palm has, so it recolours the same way: `casco-bay.webp` runs
+the bay-navy → sea-glass ramp for bands, `casco-bay-sm.webp` a pale ramp for cards. It sits in the
+**Maine/offseason family** — Casco Bay, Sebago and Shorebird are already product names in the line,
+and surf is the coastal counterpart to the pine.
+
+No season leads with it. `BY_SEASON` still runs palm in season and Lone Pine in the offseason;
+`casco-bay` is reachable through `PRINT_THEME_OVERRIDE`, which is exactly the case that switch was
+built for. Two things worth deciding later: it's the obvious candidate to **replace `lone-pine` as
+the shipped offseason print** (real artwork beating a recolour), and because the surf reads coastal
+rather than wintry it could equally carry a **summer coastal drop** — the split between print family
+and content mode is what makes either move a one-line change.
+
+A theme may also set `print: null` for a print-free season — a flat ground with the pattern withheld
+is a legitimate seasonal look, not a missing asset.
 
 ---
 
@@ -226,7 +281,7 @@ Copy and strip these — they're the reusable core:
 
 ### Front9 API
 
-Base `https://api.front9.com/api/public/v1`, **completely unauthenticated**, org-scoped by slug. Full
+Base `https://api.front9.io/api/public/v1`, **completely unauthenticated**, org-scoped by slug. Full
 local reference at `/home/chris/workspace/front9-docs/docs/`. Home page needs:
 
 | Endpoint | Purpose | revalidate |
@@ -284,9 +339,8 @@ Components grouped **by feature, not by type** — same as LFG.
 
 ## Prerequisites (blocking, need the owner)
 
-1. **The Front9 org does not exist yet.** `fn3p`, `fn3p-golf`, and `fn3pgolf` all return
-   `ORG_NOT_FOUND`. The org plus its 2026 events must be created before any tour data is real. Until
-   then the tour band renders from a local fixture behind the same DTOs.
+1. ~~**The Front9 org does not exist yet.**~~ Resolved: the org is `fn3p-golf` (the default in
+   `lib/providers/config.ts`). See "Golf sections" below.
 2. **Shopify Storefront API access token** — needed for any catalog data.
 3. **Pattern artwork** — how much exists beyond `banner.png` determines whether the print library is
    rich or thin. If `banner.png` is all we get, the build uses one hero print plus flat color fields
@@ -346,16 +400,13 @@ What's actually in the repo, and where it deviates from the plan above.
 
 ## Placeholders to delete
 
-Both backends are unconfigured, so the shop and tour sections would otherwise be
-invisible. Two fixture files stand in, and nothing else imports them:
+Shopify is unconfigured, so the shop sections would otherwise be invisible. A
+fixture file stands in, and nothing else imports it:
 
 - `lib/fixtures/products.ts` — real titles, handles, prices and image URLs read
   from the store's public `/products.json`. Delete once
   `SHOPIFY_STOREFRONT_TOKEN` is set.
-- `lib/fixtures/schedule.ts` — the 2026 schedule transcribed from the current
-  site's tour page. Delete once `FRONT9_ORG_SLUG` is set. While it's in use the
-  tour band shows a provenance note and **suppresses entry counts**, since we
-  don't actually know them.
+- ~~`lib/fixtures/schedule.ts`~~ — deleted once the Front9 org went live.
 
 The Turn has no fixture: transcribing real product and schedule data is one
 thing, inventing editorial content to review a design against is another. That
@@ -369,8 +420,16 @@ and look right. The Full Swing Anorak is a JPG with a baked-in white background
 and renders as a white box interrupting the pattern. It needs a transparent
 re-export, and any new product photography should follow the same rule.
 
-More pattern artwork is still the biggest single upgrade available: the whole
-direction is built on a print library, and there is currently one print.
+More pattern artwork is still the biggest single upgrade available. There is one
+real print; the offseason colourway is derived from it, and every additional
+print is an entry in `PRINT_THEMES` plus two files.
+
+**The seasonal flip happens on ISR revalidation, not instantly.** `/` is
+prerendered with `revalidate = 300`, so `getSeasonMode()` re-runs when the page
+regenerates — within five minutes of a request after the boundary. The same
+applies to the override env vars: they take effect on the next build or
+revalidation, not on server restart. This bit during verification, when a
+runtime override appeared to do nothing.
 
 ## Verified
 
@@ -378,7 +437,8 @@ direction is built on a print library, and there is currently one print.
   Shopify — the degradation contract holds.
 - No horizontal overflow at 375 / 768 / 1280 / 1920 (measured via CDP:
   `scrollWidth === clientWidth`). The drop rail scrolls inside itself on mobile.
-- Both seasonal modes swap correctly under `SEASON_MODE_OVERRIDE`.
+- Both seasonal modes swap correctly, content and print together (built per
+  season, since the override is read at prerender time).
 - `/the-turn` renders its empty state; unknown URLs get the branded 404.
 
 ---
@@ -444,3 +504,35 @@ whose products run aqua, royal, sand, seafoam, and pistachio.
 ### 5. Resort Print — **CHOSEN**
 
 See the main body above.
+
+---
+
+## Golf sections
+
+FN3P runs three kinds of golf out of one Front9 org, and each gets its own section.
+`lib/golf.ts` sorts every event into one:
+
+| Kind | How Front9 marks it | Hub | Event page | Register |
+|---|---|---|---|---|
+| **Indoor league** | linked to a league (`?eventSeries=`) | `/indoor`, `/indoor/[league]` | `/indoor/[league]/[event]` | once per league |
+| **Charity** | tagged `charity` | `/charity` | `/charity/[slug]` | per event |
+| **FN3P Tour** | everything else | `/tour` | `/tour/[slug]` | per event |
+
+League membership beats the tag, and the tour is the default, so a tour event needs no setup in
+Front9 beyond being created. `/events/[slug]` redirects any slug to its real page — the stable link
+for announcements and emails. An event opened under the wrong section redirects too.
+
+- **Tour and league nights are data register**: a thin print strip, then ink on white; tabs for
+  Overview / Field / Tee times (Bays indoors) / Leaderboard, opening on the leaderboard once there
+  are scores. The leaderboard subscribes to Front9's SSE stream while the event is live.
+- **Charity is brand register**: each event is a poster on the print with a round date stamp (the
+  logo's golf-ball circle) as its signature. The ask ("Register your team") leads; results move to
+  the top only once there are some.
+- **Registration** posts to server actions in `lib/registration.ts`, which re-check that entry is
+  still open, mint Front9's hosted URL and redirect. Failure returns with `?registration=failed`,
+  read on the client so the pages stay statically cached.
+- **Tour standings** auto-detect skips series linked to a league, so an indoor table never shows up
+  as the tour's. Pin it with `SEASON_STANDINGS_SERIES_ID` once the tour series exists.
+
+Not built yet: hole-by-hole scorecards, live odds, match-play/team-match boards, and player pages
+(LFG has all of these to port when needed).

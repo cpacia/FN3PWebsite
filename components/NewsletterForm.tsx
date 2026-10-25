@@ -32,7 +32,7 @@ export function NewsletterForm() {
 
   if (state === "done") {
     return (
-      <p className="font-display text-sm font-bold uppercase tracking-[0.12em] text-fn-aqua">
+      <p className="font-display text-sm font-bold uppercase tracking-[0.12em] text-fn-accent-light">
         You&apos;re in. See you on the tee.
       </p>
     );
@@ -51,12 +51,12 @@ export function NewsletterForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="min-w-0 flex-1 rounded-full border border-fn-paper/30 bg-transparent px-4 py-2.5 text-sm text-fn-paper placeholder:text-fn-paper/40 focus:border-fn-aqua focus:outline-none"
+          className="min-w-0 flex-1 rounded-full border border-fn-paper/30 bg-transparent px-4 py-2.5 text-sm text-fn-paper placeholder:text-fn-paper/40 focus:border-fn-accent-light focus:outline-none"
         />
         <button
           type="submit"
           disabled={state === "sending"}
-          className="shrink-0 rounded-full bg-fn-aqua px-5 py-2.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-fn-ink transition-opacity hover:opacity-85 disabled:opacity-50"
+          className="shrink-0 rounded-full bg-fn-accent-light px-5 py-2.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-fn-ink transition-opacity hover:opacity-85 disabled:opacity-50"
         >
           {state === "sending" ? "…" : "Join"}
         </button>

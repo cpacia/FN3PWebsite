@@ -5,8 +5,9 @@
  *
  * The brand isn't a colour, it's a library of hand-painted prints. Black ink and
  * off-white paper are the only constants; every other colour arrives with a
- * collection. Section components consume --color-fn-accent rather than a named
- * hue, so re-skinning a section for a new drop is a token swap.
+ * print. Surfaces consume --print-sm/--print-lg and the --color-fn-accent-*
+ * family rather than a file path or a named hue, so a whole season re-skins from
+ * one place -- see lib/print-theme.ts.
  *
  * See docs/brand/design-directions.md for the full system and the four
  * directions we didn't take.
@@ -18,10 +19,17 @@
   --color-fn-paper: #faf8f4;
   --color-fn-line: #e2ddd3;
 
-  /* Signature print, sampled from banner.png */
-  --color-fn-aqua: #84d7e7;
-  --color-fn-aqua-light: #c3eaef;
-  --color-fn-deep: #0b4f63;
+  /*
+   * The active print's colours. Declared here so Tailwind generates
+   * bg-fn-accent / text-fn-accent-deep utilities; the values are then
+   * overridden per season on a layout wrapper by printThemeVars()
+   * (lib/print-theme.ts), so the utilities follow the print automatically.
+   * The defaults are the palm print sampled from banner.png; each print's own
+   * values live with it in PRINT_THEMES.
+   */
+  --color-fn-accent: #84d7e7;
+  --color-fn-accent-light: #c3eaef;
+  --color-fn-accent-deep: #0b4f63;
 
   /* Rotating collection accents */
   --color-fn-royal: #1b44e0;
@@ -36,8 +44,13 @@
 }
 
 :root {
-  /* Remapped per collection/season by the section that owns it. */
-  --color-fn-accent: var(--color-fn-aqua);
+  /*
+   * Print image defaults, overridden per season alongside the accent colours.
+   * Surfaces reference these rather than a file path, so swapping a print never
+   * means editing a component.
+   */
+  --print-lg: url("/patterns/palm-aqua.webp");
+  --print-sm: url("/patterns/palm-aqua-sm.webp");
 }
 
 body {

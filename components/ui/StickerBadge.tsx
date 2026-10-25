@@ -11,14 +11,14 @@ export function StickerBadge({
   className = "",
 }: {
   children: ReactNode;
-  tone?: "ink" | "paper" | "aqua";
+  tone?: "ink" | "paper" | "accent";
   rotate?: number;
   className?: string;
 }) {
   const tones = {
     ink: "bg-fn-ink text-fn-paper",
     paper: "bg-fn-paper text-fn-ink",
-    aqua: "bg-fn-aqua text-fn-ink",
+    accent: "bg-fn-accent-light text-fn-ink",
   } as const;
   return (
     <span

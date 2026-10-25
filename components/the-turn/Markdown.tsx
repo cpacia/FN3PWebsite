@@ -66,7 +66,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
           <a
             key={`${keyPrefix}-a${i}`}
             href={href}
-            className="font-semibold text-fn-deep underline underline-offset-2 hover:opacity-70"
+            className="font-semibold text-fn-accent-deep underline underline-offset-2 hover:opacity-70"
             {...(href.startsWith("http")
               ? { target: "_blank", rel: "noopener noreferrer" }
               : {})}

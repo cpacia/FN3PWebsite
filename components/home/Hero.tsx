@@ -44,7 +44,7 @@ export function Hero({
     <PrintPanel className="px-5 py-20 sm:py-28 lg:px-8 lg:py-36">
       <div className="mx-auto max-w-7xl">
         <div className="animate-rise max-w-3xl rounded-3xl bg-fn-paper p-8 shadow-[0_24px_70px_-30px_rgba(11,79,99,0.55)] sm:p-12 lg:p-14">
-          <StickerBadge tone="aqua" className="mb-6">
+          <StickerBadge tone="accent" className="mb-6">
             Gray, Maine · Est. 2019
           </StickerBadge>
 
@@ -59,7 +59,7 @@ export function Hero({
             seriously. Gear worth wearing and a tour worth entering.
           </p>
 
-          <p className="tabular mt-7 font-display text-xs font-bold uppercase tracking-[0.18em] text-fn-deep">
+          <p className="tabular mt-7 font-display text-xs font-bold uppercase tracking-[0.18em] text-fn-accent-deep">
             {kicker}
           </p>
 

@@ -7,9 +7,9 @@ export function PostCard({ post }: { post: PostSummary }) {
   return (
     <Link href={`/the-turn/${post.slug}`} className="group flex flex-col">
       <div
-        className="relative aspect-16/10 overflow-hidden rounded-2xl bg-fn-aqua"
+        className="relative aspect-16/10 overflow-hidden rounded-2xl bg-fn-accent"
         style={{
-          backgroundImage: "url(/patterns/palm-aqua-sm.webp)",
+          backgroundImage: "var(--print-sm)",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
