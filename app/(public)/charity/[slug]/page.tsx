@@ -6,6 +6,7 @@ import { DateStamp } from "@/components/golf/DateStamp";
 import { FieldPanel } from "@/components/golf/FieldPanel";
 import { LeaderboardView } from "@/components/golf/LeaderboardView";
 import { RegisterButton, RegistrationFailed } from "@/components/golf/RegisterButton";
+import { SponsorshipPackages } from "@/components/golf/SponsorshipPackages";
 import { TeeTimesPanel } from "@/components/golf/TeeTimesPanel";
 import { Markdown } from "@/components/the-turn/Markdown";
 import { PrintPanel } from "@/components/ui/PrintPanel";
@@ -21,7 +22,9 @@ import {
   registrationState,
   teamSizeLabel,
 } from "@/lib/golf";
+import { buySponsorship } from "@/lib/checkout";
 import { hasResults } from "@/lib/leaderboard";
+import { productHref } from "@/lib/links";
 import {
   getEventDetail,
   getEventField,
@@ -32,6 +35,7 @@ import {
 import type { EventDetail } from "@/lib/providers/types";
 import { registerForEvent } from "@/lib/registration";
 import { formatDate, socialMetadata } from "@/lib/seo";
+import { getSponsorshipPackages, isShopifyConfigured } from "@/lib/shopify";
 
 export const revalidate = 60;
 
@@ -61,10 +65,11 @@ export default async function CharityEventPage({ params }: Params) {
   if (!event || !where) notFound();
   if (where.kind !== "charity") redirect(eventPath(where.kind, slug, where.league?.slug));
 
-  const [field, sheets, boards] = await Promise.all([
+  const [field, sheets, boards, packages] = await Promise.all([
     getEventField(slug),
     getTeeSheets(slug),
     getLeaderboards(slug),
+    getSponsorshipPackages(slug),
   ]);
 
   const today = localToday();
@@ -81,6 +86,8 @@ export default async function CharityEventPage({ params }: Params) {
   const teams = event.teamSize > 1;
   const r = registrationState(event);
   const more = where.siblings.filter((e) => e.eventId !== slug && !isPast(e)).slice(0, 3);
+  // Sponsorships sell alongside entries: only while registration is open.
+  const sponsoring = r.state === "open" && event.status !== "canceled" && packages.length > 0;
 
   const results = (
     <section className="bg-white">
@@ -140,6 +147,14 @@ export default async function CharityEventPage({ params }: Params) {
                       ? `Registration opens ${formatDate(r.opens, { weekday: "long", month: "long", year: undefined })}`
                       : "Registration is closed"}
                   </p>
+                )}
+                {sponsoring && (
+                  <a
+                    href="#sponsor"
+                    className="font-display text-sm font-bold uppercase tracking-[0.12em] text-fn-ink underline underline-offset-4 hover:opacity-70"
+                  >
+                    Become a sponsor
+                  </a>
                 )}
                 {fee != null && (
                   <p className="text-sm text-fn-ink-soft">
@@ -244,6 +259,31 @@ export default async function CharityEventPage({ params }: Params) {
           </div>
         )}
       </section>
+
+      {sponsoring && (
+        <section id="sponsor" className="scroll-mt-24 border-t border-fn-line">
+          <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
+            <h2 className="font-display text-4xl font-black uppercase text-fn-ink sm:text-5xl">
+              Sponsor the day
+            </h2>
+            <p className="mt-4 max-w-2xl text-base text-fn-ink-soft">
+              Put your name on the event and help the cause. Packages are paid through the FN3P
+              shop.
+            </p>
+            <div className="mt-10">
+              <SponsorshipPackages
+                packages={packages}
+                action={isShopifyConfigured() ? buySponsorship.bind(null, slug) : null}
+                productUrl={Object.fromEntries(packages.map((p) => [p.handle, productHref(p.handle)]))}
+              />
+            </div>
+            <RegistrationFailed
+              param="checkout"
+              message="Checkout couldn't be started. Please try again, or email fn3pgolf@gmail.com and we'll sort it out."
+            />
+          </div>
+        </section>
+      )}
 
       <section className="border-t border-fn-line bg-fn-accent-light/40">
         <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">

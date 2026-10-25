@@ -44,19 +44,30 @@ export function RegisterButton({
 export function RegistrationFailed({
   tone = "ink",
   message,
+  param = "registration",
 }: {
   tone?: "ink" | "paper";
   message?: string;
+  /** The query flag to watch: `?registration=failed` by default, `?checkout=failed`… */
+  param?: string;
 }) {
   return (
     <Suspense fallback={null}>
-      <FailedNotice tone={tone} message={message} />
+      <FailedNotice tone={tone} message={message} param={param} />
     </Suspense>
   );
 }
 
-function FailedNotice({ tone, message }: { tone: "ink" | "paper"; message?: string }) {
-  const failed = useSearchParams().get("registration") === "failed";
+function FailedNotice({
+  tone,
+  message,
+  param,
+}: {
+  tone: "ink" | "paper";
+  message?: string;
+  param: string;
+}) {
+  const failed = useSearchParams().get(param) === "failed";
   if (!failed) return null;
   return (
     <p

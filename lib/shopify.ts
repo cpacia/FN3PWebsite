@@ -9,6 +9,8 @@
  * checkout is proxied through /api/shop/checkout, so the browser never holds it.
  * Reads are cached via next.revalidate; the checkout mutation is uncached.
  */
+import { collectionHref } from "@/lib/links";
+
 const DOMAIN = (process.env.SHOPIFY_STORE_DOMAIN ?? "").trim();
 const TOKEN = (process.env.SHOPIFY_STOREFRONT_TOKEN ?? "").trim();
 const VERSION = (process.env.SHOPIFY_API_VERSION ?? "").trim() || "2024-10";
@@ -261,6 +263,134 @@ export async function getProduct(handle: string): Promise<Product | null> {
       priceFormatted: formatMoney(node.price.amount, node.price.currencyCode),
     })),
   };
+}
+
+/**
+ * A charity event's sponsorship packages: the products in the Shopify
+ * collection named for the event — `<front9-slug>-sponsorships`. Front9 can't
+ * sell products like these, so the link between event and products lives in
+ * Shopify, where the products are made: add a product to that collection and it
+ * shows on the event page, in the collection's sort order.
+ */
+export function sponsorshipCollection(eventSlug: string): string {
+  return `${eventSlug}-sponsorships`;
+}
+
+export interface SponsorshipPackage {
+  handle: string;
+  title: string;
+  /** Plain text, tags stripped. */
+  description: string;
+  imageUrl: string;
+  variants: {
+    /** Storefront gid when the API is configured; the store's numeric id otherwise. */
+    id: string;
+    /** "" for a product without options (Shopify's "Default Title"). */
+    title: string;
+    price: string;
+    available: boolean;
+  }[];
+}
+
+const SPONSORSHIP_QUERY = `
+  query Sponsorships($handle: String!) {
+    collectionByHandle(handle: $handle) {
+      products(first: 24) {
+        edges {
+          node {
+            handle
+            title
+            description
+            featuredImage { url }
+            variants(first: 20) {
+              edges { node { id title availableForSale price { amount currencyCode } } }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+const optionTitle = (t: string) => (t === "Default Title" ? "" : t);
+
+/**
+ * The event's packages. Through the Storefront API once it's configured; until
+ * then from the store's public products.json, which needs no token, so the
+ * section works today. Empty when the collection doesn't exist or on error.
+ */
+export async function getSponsorshipPackages(eventSlug: string): Promise<SponsorshipPackage[]> {
+  const handle = sponsorshipCollection(eventSlug);
+  if (isShopifyConfigured()) {
+    const data = await storefront<{
+      collectionByHandle: {
+        products: {
+          edges: {
+            node: {
+              handle: string;
+              title: string;
+              description: string;
+              featuredImage: { url: string } | null;
+              variants: {
+                edges: {
+                  node: { id: string; title: string; availableForSale: boolean; price: MoneyV1 };
+                }[];
+              };
+            };
+          }[];
+        };
+      } | null;
+    }>(SPONSORSHIP_QUERY, { handle }, 300);
+    return (data?.collectionByHandle?.products.edges ?? []).map(({ node }) => ({
+      handle: node.handle,
+      title: node.title,
+      description: node.description.trim(),
+      imageUrl: node.featuredImage?.url ?? "",
+      variants: node.variants.edges.map(({ node: v }) => ({
+        id: v.id,
+        title: optionTitle(v.title),
+        price: formatMoney(v.price.amount, v.price.currencyCode),
+        available: v.availableForSale,
+      })),
+    }));
+  }
+
+  try {
+    const res = await fetch(`${collectionHref(handle)}/products.json?limit=24`, {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      products?: {
+        handle: string;
+        title: string;
+        body_html?: string | null;
+        images?: { src: string }[];
+        variants?: { id: number; title: string; price: string; available?: boolean }[];
+      }[];
+    };
+    return (data.products ?? []).map((p) => ({
+      handle: p.handle,
+      title: p.title,
+      description: (p.body_html ?? "")
+        .replace(/<br\s*\/?>|<\/p>/gi, " ")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&nbsp;/g, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+      imageUrl: p.images?.[0]?.src ?? "",
+      variants: (p.variants ?? []).map((v) => ({
+        id: String(v.id),
+        title: optionTitle(v.title),
+        price: formatMoney(v.price, "USD"),
+        available: v.available !== false,
+      })),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 const CART_CREATE = `
