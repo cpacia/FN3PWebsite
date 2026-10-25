@@ -29,7 +29,7 @@ export default async function PostPage({ params }: Params) {
   if (!post) notFound();
 
   return (
-    <article className="mx-auto max-w-3xl px-5 py-14 lg:px-8 lg:py-20">
+    <article className="mx-auto max-w-4xl px-5 py-14 lg:px-8 lg:py-20">
       <Link
         href="/the-turn"
         className="font-display text-xs font-bold uppercase tracking-[0.16em] text-fn-accent-deep underline underline-offset-4 hover:opacity-70"
@@ -55,7 +55,7 @@ export default async function PostPage({ params }: Params) {
             alt=""
             fill
             priority
-            sizes="(max-width: 768px) 100vw, 768px"
+            sizes="(max-width: 896px) 100vw, 896px"
             className="object-cover"
           />
         </div>
