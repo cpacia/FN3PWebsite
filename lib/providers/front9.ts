@@ -26,6 +26,8 @@ import type {
   Leaderboard,
   Post,
   PostSummary,
+  Scorecard,
+  ScorecardHandicap,
   StandingRow,
   StandingsTable,
   TeeSheet,
@@ -92,6 +94,8 @@ interface Front9Event {
   eventImageUrl: string;
   sponsorImageUrl: string;
   totalPlayers: number;
+  /** List payload only: entries in the field — teams for a team event, else players. */
+  fieldSize?: number;
   /** List payload only: players per team for the primary game. */
   teamSize?: number;
   /** Single-event payload only. */
@@ -185,6 +189,7 @@ function toEventSummary(e: Front9Event, origin: string): EventSummary {
     isComplete: e.status === "completed",
     maxPlayers: e.maxPlayers ?? null,
     totalPlayers: e.totalPlayers ?? 0,
+    entries: e.fieldSize ?? e.totalPlayers ?? 0,
     rounds: (e.rounds ?? []).map((r) => ({
       name: r.name ?? "",
       date: (r.date ?? r.startDate ?? "").slice(0, 10),
@@ -669,10 +674,20 @@ export async function getEventDetail(slug: string): Promise<EventDetail | null> 
   if (!cfg || !s) return null;
   const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(s)}`;
   try {
-    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 60 } });
+    // The single-event payload carries no field counts, so they come from the
+    // field itself — the same cached request the event page's field tab makes.
+    const [res, field] = await Promise.all([
+      fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 60 } }),
+      getEventField(s),
+    ]);
     if (!res.ok) return null;
     const e = (await res.json()) as Front9Event;
-    const summary = toEventSummary(e, apiOrigin(cfg.apiUrl));
+    const registered = field.players.filter((p) => p.waitlistPosition == null).length;
+    const summary = {
+      ...toEventSummary(e, apiOrigin(cfg.apiUrl)),
+      totalPlayers: registered,
+      entries: field.isTeamEvent ? field.teams.length : registered,
+    };
     const wanted = [e.menTeeId, e.womenTeeId]
       .filter((t): t is string => !!t)
       .map((t) => t.toLowerCase());
@@ -844,6 +859,118 @@ export async function getLeaderboards(slug: string): Promise<Leaderboard[]> {
     return normalizeLeaderboards((await res.json()) as RawLeaderboardResponse);
   } catch {
     return [];
+  }
+}
+
+interface Front9ScorecardRound {
+  roundNumber?: number;
+  roundName?: string | null;
+  // Individual card
+  handicapIndex?: number | null;
+  handicapIndexDisplay?: string | null;
+  courseHandicap?: number | null;
+  playingHandicap?: number | null;
+  teeName?: string | null;
+  courseRating?: number | null;
+  slopeRating?: number | null;
+  // Team card, one entry per member
+  playerNames?: string[] | null;
+  handicapIndexes?: (number | null)[] | null;
+  handicapIndexDisplays?: (string | null)[] | null;
+  courseHandicaps?: (number | null)[] | null;
+  individualPlayingHandicaps?: (number | null)[] | null;
+  teamPlayingHandicap?: number | null;
+  teeNames?: (string | null)[] | null;
+  courseRatings?: (number | null)[] | null;
+  slopeRatings?: (number | null)[] | null;
+  rows?: {
+    label?: string | null;
+    key?: string | null;
+    values?: (number | string | null)[] | null;
+    out?: number | string | null;
+    in?: number | string | null;
+    total?: number | string | null;
+    strokesGiven?: (number | null)[] | null;
+    formatted?: boolean;
+  }[];
+}
+
+/** "BLUE" → "Blue". */
+function teeLabel(t: string | null | undefined): string {
+  const v = (t ?? "").trim();
+  return v ? v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() : "";
+}
+
+/** A round's tee-and-handicap lines: the player's, or each team member's. */
+function roundHandicaps(r: Front9ScorecardRound, name: string): ScorecardHandicap[] {
+  if (r.playerNames?.length) {
+    return r.playerNames.map((n, i) => ({
+      name: n,
+      tee: teeLabel(r.teeNames?.[i]),
+      courseRating: r.courseRatings?.[i] ?? null,
+      slopeRating: r.slopeRatings?.[i] ?? null,
+      index:
+        r.handicapIndexDisplays?.[i] ||
+        (r.handicapIndexes?.[i] != null ? formatHandicap(r.handicapIndexes[i]) : ""),
+      courseHandicap: r.courseHandicaps?.[i] ?? null,
+      playingHandicap: r.individualPlayingHandicaps?.[i] ?? null,
+    }));
+  }
+  if (r.handicapIndex == null && r.courseHandicap == null && !r.teeName) return [];
+  return [
+    {
+      name,
+      tee: teeLabel(r.teeName),
+      courseRating: r.courseRating ?? null,
+      slopeRating: r.slopeRating ?? null,
+      index: r.handicapIndexDisplay || formatHandicap(r.handicapIndex),
+      courseHandicap: r.courseHandicap ?? null,
+      playingHandicap: r.playingHandicap ?? null,
+    },
+  ];
+}
+
+/**
+ * A player's or team's hole-by-hole card for one competition. Null when
+ * unconfigured, when neither id is given, or on error.
+ */
+export async function getScorecard(
+  slug: string,
+  opts: { playerId?: number; teamId?: number; competitionId?: number; name?: string },
+): Promise<Scorecard | null> {
+  const cfg = front9OrgBase();
+  if (!cfg || !slug || (opts.playerId == null && opts.teamId == null)) return null;
+  const qs = new URLSearchParams();
+  if (opts.playerId != null) qs.set("playerId", String(opts.playerId));
+  if (opts.teamId != null) qs.set("teamId", String(opts.teamId));
+  if (opts.competitionId != null) qs.set("competitionId", String(opts.competitionId));
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/events/${encodeURIComponent(
+    slug,
+  )}/leaderboard/scorecard?${qs}`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 30 } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { rounds?: Front9ScorecardRound[] };
+    return {
+      rounds: (data.rounds ?? []).map((r) => ({
+        roundNumber: r.roundNumber ?? 0,
+        roundName: (r.roundName ?? "").trim(),
+        handicaps: roundHandicaps(r, opts.name ?? ""),
+        teamPlayingHandicap: r.teamPlayingHandicap ?? null,
+        rows: (r.rows ?? []).map((row) => ({
+          label: (row.label ?? "").trim(),
+          key: row.key ?? "",
+          values: row.values ?? [],
+          out: row.out ?? null,
+          in: row.in ?? null,
+          total: row.total ?? null,
+          strokesGiven: row.strokesGiven ?? undefined,
+          formatted: !!row.formatted,
+        })),
+      })),
+    };
+  } catch {
+    return null;
   }
 }
 

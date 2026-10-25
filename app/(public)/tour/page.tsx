@@ -13,8 +13,9 @@ import {
   nextUp,
   seasonYears,
 } from "@/lib/golf";
+import { CHAMPIONSHIP_TAGS } from "@/lib/championship";
 import { productHref } from "@/lib/links";
-import { getTourStandings } from "@/lib/providers/front9";
+import { getTourStandings, listEvents } from "@/lib/providers/front9";
 import { socialMetadata } from "@/lib/seo";
 
 export const revalidate = 300;
@@ -38,10 +39,11 @@ export default async function TourPage({
 }: {
   searchParams: Promise<{ season?: string }>;
 }) {
-  const [{ season: rawSeason }, calendar, standings] = await Promise.all([
+  const [{ season: rawSeason }, calendar, standings, playoffs] = await Promise.all([
     searchParams,
     getGolfCalendar(),
     getTourStandings(),
+    listEvents({ tag: CHAMPIONSHIP_TAGS }),
   ]);
 
   const years = seasonYears(calendar.tour);
@@ -51,6 +53,10 @@ export default async function TourPage({
   const schedule = calendar.tour.filter((e) => e.date.startsWith(String(season)));
   const next = isCurrent ? nextUp(schedule) : null;
   const played = schedule.filter((e) => e.status === "completed").length;
+  // The championship legs stay on the schedule as ordinary events; they're
+  // labelled there, and the band below links to the compiled board.
+  const playoffIds = new Set(playoffs.map((e) => e.eventId));
+  const legs = schedule.filter((e) => playoffIds.has(e.eventId));
 
   return (
     <>
@@ -153,6 +159,11 @@ export default async function TourPage({
                       <span className="block truncate font-display text-lg font-extrabold uppercase leading-tight text-fn-ink group-hover:underline">
                         {e.name}
                       </span>
+                      {playoffIds.has(e.eventId) && (
+                        <span className="block font-display text-[11px] font-bold uppercase tracking-[0.16em] text-fn-accent-deep">
+                          Championship · Leg {legs.indexOf(e) + 1}
+                        </span>
+                      )}
                       <span className="block truncate text-sm text-fn-ink-soft">
                         <span className="sm:hidden">{dateLabel(e.date, e.endDate, { year: false })} · </span>
                         {e.course !== e.name ? e.course : ""}
@@ -171,6 +182,38 @@ export default async function TourPage({
           )}
         </div>
       </section>
+
+      {legs.length > 0 && (
+        <section className="bg-white">
+          <div className="mx-auto max-w-7xl px-5 pb-16 lg:px-8">
+            <div className="relative flex flex-wrap items-center justify-between gap-6 border-2 border-fn-ink bg-fn-paper p-7">
+              {/* The pin-flag notch, as on the home page's next-event card. */}
+              <span
+                aria-hidden
+                className="absolute bottom-0 right-0 h-5 w-5 bg-fn-ink"
+                style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
+              />
+              <div className="min-w-0 max-w-2xl">
+                <p className="font-display text-xs font-bold uppercase tracking-[0.2em] text-fn-accent-deep">
+                  {season} Tour Championship
+                </p>
+                <h2 className="mt-2 font-display text-2xl font-extrabold uppercase leading-tight text-fn-ink sm:text-3xl">
+                  Two legs. Best two net rounds of eight.
+                </h2>
+                <p className="mt-2 text-sm text-fn-ink-soft">
+                  Teams of four play both legs. Each team&apos;s two lowest individual net rounds
+                  are added together, and the lowest total wins.
+                </p>
+              </div>
+              <ButtonLink
+                href={season === defaultSeason(calendar.tour) ? "/tour/championship" : `/tour/championship?season=${season}`}
+              >
+                Championship board
+              </ButtonLink>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section id="standings" className="scroll-mt-24 border-t border-fn-line bg-white">
         <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">

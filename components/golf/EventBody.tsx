@@ -4,7 +4,7 @@ import { FieldPanel } from "@/components/golf/FieldPanel";
 import { LeaderboardView } from "@/components/golf/LeaderboardView";
 import { TeeTimesPanel } from "@/components/golf/TeeTimesPanel";
 import { hasResults } from "@/lib/leaderboard";
-import { isPast, localToday } from "@/lib/golf";
+import { isPast, localToday, netCompetitionIds } from "@/lib/golf";
 import {
   getEventField,
   getLeaderboards,
@@ -45,7 +45,9 @@ export async function EventBody({ event }: { event: EventDetail }) {
       label: event.isComplete ? "Results" : "Leaderboard",
       panel: (
         <LeaderboardView
+          slug={event.eventId}
           leaderboards={boards}
+          netCompetitionIds={netCompetitionIds(event)}
           streamUrl={live ? leaderboardStreamUrl(event.eventId) : null}
         />
       ),

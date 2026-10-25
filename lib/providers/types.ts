@@ -64,6 +64,8 @@ export interface EventSummary {
   maxPlayers: number | null;
   /** Entrants so far, for the "spots left" line on the home page. */
   totalPlayers: number;
+  /** Entries in the field: teams for a team event, players otherwise. */
+  entries: number;
   /** Players per team from the list payload; 0 or 1 for individual events. */
   teamSize: number;
   /** Set on a child event (an extra round); those are folded away in schedules. */
@@ -211,4 +213,51 @@ export interface League {
   imageUrl: string;
   linkedEventCount: number;
   standingSeriesId: number | null;
+}
+
+/**
+ * One line of a hole-by-hole scorecard: Index, Par, Gross, Net, a team member,
+ * Team Net… Rendered generically, so every format's card draws the same way.
+ */
+export interface ScorecardSeries {
+  label: string;
+  key: string;
+  values: (number | string | null)[];
+  out: number | string | null;
+  in: number | string | null;
+  total: number | string | null;
+  /** Handicap strokes received on each hole (net games); drawn as dots. */
+  strokesGiven?: (number | null)[];
+  /** Stroke lines whose hole scores get birdie/bogey shapes. */
+  formatted: boolean;
+}
+
+/** The tee and handicap one competitor played a round off. */
+export interface ScorecardHandicap {
+  name: string;
+  tee: string;
+  courseRating: number | null;
+  slopeRating: number | null;
+  index: string;
+  courseHandicap: number | null;
+  playingHandicap: number | null;
+}
+
+/**
+ * One round of a scorecard. Handicaps are carried per round, not per card:
+ * Front9's top-level copies are the first round's only (see the API's
+ * "Scorecards & handicaps" guide).
+ */
+export interface ScorecardRound {
+  roundNumber: number;
+  roundName: string;
+  /** One entry for a player's card, one per member for a team's. */
+  handicaps: ScorecardHandicap[];
+  /** The team's combined playing handicap; null on a player's card. */
+  teamPlayingHandicap: number | null;
+  rows: ScorecardSeries[];
+}
+
+export interface Scorecard {
+  rounds: ScorecardRound[];
 }

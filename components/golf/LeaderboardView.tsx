@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { Scorecard } from "@/components/golf/Scorecard";
 import { hasResults, normalizeLeaderboards, type RawLeaderboardResponse } from "@/lib/leaderboard";
 import type { Leaderboard, LeaderboardTable } from "@/lib/providers/types";
 
 type Cell = string | number | boolean | null | undefined;
 
 const text = (v: Cell) => (v == null ? "" : String(v));
+const v0 = (v: Cell) => text(v).trim();
+
+/** Single-hole contests: a distance, not a card, so their rows don't open. */
+const CONTEST_FORMATS = new Set(["closest_to_pin", "long_drive"]);
 
 /** To-par columns: the total, today, and each round. */
 const isToPar = (key: string) => key === "totalDisplay" || key === "todayDisplay" || /^r\d+$/.test(key);
@@ -18,13 +23,21 @@ const isToPar = (key: string) => key === "totalDisplay" || key === "todayDisplay
  *
  * With a `streamUrl` it subscribes to Front9's live SSE stream (each frame is the
  * full leaderboard payload) and changed cells flash.
+ *
+ * A player or team name opens their hole-by-hole scorecard in a row beneath it.
  */
 export function LeaderboardView({
+  slug,
   leaderboards,
+  netCompetitionIds = [],
   streamUrl,
   empty = "Scores post here once play starts.",
 }: {
+  /** The event, for fetching scorecards. */
+  slug: string;
   leaderboards: Leaderboard[];
+  /** Competitions played off handicap, whose cards print the handicap block. */
+  netCompetitionIds?: number[];
   streamUrl?: string | null;
   empty?: string;
 }) {
@@ -97,7 +110,21 @@ export function LeaderboardView({
 
       <div className="space-y-10">
         {current.tables.map((t, i) => (
-          <Table key={`${idx}-${i}`} table={t} showLabel={current.tables.length > 1} resetKey={idx} />
+          <Table
+            key={`${idx}-${i}`}
+            table={t}
+            showLabel={current.tables.length > 1}
+            resetKey={idx}
+            card={
+              CONTEST_FORMATS.has(current.format)
+                ? null
+                : {
+                    slug,
+                    competitionId: current.competitionIds[0],
+                    handicapped: current.competitionIds.some((id) => netCompetitionIds.includes(id)),
+                  }
+            }
+          />
         ))}
       </div>
     </div>
@@ -108,11 +135,15 @@ function Table({
   table,
   showLabel,
   resetKey,
+  card,
 }: {
   table: LeaderboardTable;
   showLabel: boolean;
   resetKey: number;
+  /** Where this board's scorecards come from; null when its rows don't open. */
+  card: { slug: string; competitionId?: number; handicapped: boolean } | null;
 }) {
+  const [open, setOpen] = useState<string | null>(null);
   const nameCol = table.columns.findIndex((c) => c.key === "displayName");
   // Quota formats print "+3"/"-2" relative to quota, where below is bad, so they
   // don't get the under-par red. Front9 marks them with a "Pts" strokes column.
@@ -150,30 +181,77 @@ function Table({
                 </td>
               </tr>
             )}
-            {table.rows.map((row, ri) => (
-              <tr key={text(row.playerId ?? row.teamId ?? row.displayName ?? ri)}>
-                {table.columns.map((c, i) => {
-                  const v = text(row[c.key]);
-                  const under = !isQuota && isToPar(c.key) && /^-\d/.test(v);
-                  return (
-                    <td
-                      key={c.key || i}
-                      className={`px-2 py-2.5 sm:px-3 ${
-                        i === nameCol ? "font-medium text-fn-ink" : "text-fn-ink-soft"
-                      } ${nameCol >= 0 && i > nameCol ? "text-right" : ""} ${
-                        c.key === "totalDisplay" ? "font-bold !text-fn-ink" : ""
-                      }`}
-                    >
-                      <Flash
-                        value={c.key === "totalDisplay" ? v.replace(/^-/, "−") : v}
-                        resetKey={resetKey}
-                        className={under ? "!text-red-700" : ""}
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {table.rows.map((row, ri) => {
+              const key = text(row.playerId ?? row.teamId ?? row.displayName ?? ri);
+              const playerId = typeof row.playerId === "number" ? row.playerId : undefined;
+              const teamId = typeof row.teamId === "number" ? row.teamId : undefined;
+              const opens = !!card && (playerId != null || teamId != null);
+              const isOpen = opens && open === key;
+              return (
+                <Fragment key={key}>
+                  <tr className={isOpen ? "bg-fn-paper" : ""}>
+                    {table.columns.map((c, i) => {
+                      const v = text(row[c.key]);
+                      const under = !isQuota && isToPar(c.key) && /^-\d/.test(v);
+                      const flash = (
+                        <Flash
+                          value={c.key === "totalDisplay" ? v.replace(/^-/, "−") : v}
+                          resetKey={resetKey}
+                          className={under ? "!text-red-700" : ""}
+                        />
+                      );
+                      return (
+                        <td
+                          key={c.key || i}
+                          className={`px-2 py-2.5 sm:px-3 ${
+                            i === nameCol ? "font-medium text-fn-ink" : "text-fn-ink-soft"
+                          } ${nameCol >= 0 && i > nameCol ? "text-right" : ""} ${
+                            c.key === "totalDisplay" ? "font-bold !text-fn-ink" : ""
+                          }`}
+                        >
+                          {i === nameCol && opens ? (
+                            <button
+                              type="button"
+                              onClick={() => setOpen(isOpen ? null : key)}
+                              aria-expanded={isOpen}
+                              className="group flex cursor-pointer items-baseline gap-1.5 text-left hover:underline"
+                            >
+                              {flash}
+                              <span
+                                aria-hidden
+                                className={`text-[10px] text-fn-ink-soft transition-transform ${
+                                  isOpen ? "rotate-90" : ""
+                                }`}
+                              >
+                                ▸
+                              </span>
+                            </button>
+                          ) : (
+                            flash
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-fn-paper">
+                      <td colSpan={table.columns.length} className="px-2 sm:px-3">
+                        <Scorecard
+                          slug={card.slug}
+                          target={{
+                            name: v0(row.displayName),
+                            playerId,
+                            teamId,
+                            competitionId: card.competitionId,
+                            handicapped: card.handicapped,
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

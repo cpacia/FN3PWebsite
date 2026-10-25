@@ -73,9 +73,11 @@ export default async function TourEventPage({ params }: Params) {
           {
             label: "Field",
             value:
-              event.maxPlayers != null
-                ? `${event.totalPlayers} / ${event.maxPlayers}`
-                : String(event.totalPlayers),
+              event.teamSize > 1
+                ? `${event.entries} teams`
+                : event.maxPlayers != null
+                  ? `${event.totalPlayers} / ${event.maxPlayers} players`
+                  : `${event.totalPlayers} players`,
           },
         ]}
         aside={<RegisterCard event={event} />}

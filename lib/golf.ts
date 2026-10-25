@@ -15,7 +15,7 @@
  * lives on the league's schedule.
  */
 import { listEvents, listLeagues } from "@/lib/providers/front9";
-import type { EventSummary, League } from "@/lib/providers/types";
+import type { EventDetail, EventSummary, League } from "@/lib/providers/types";
 import { formatDate } from "@/lib/seo";
 
 export type EventKind = "tour" | "charity" | "league";
@@ -231,4 +231,12 @@ const FORMAT_NAMES: Record<string, string> = {
 
 export function formatName(f: string): string {
   return FORMAT_NAMES[f] ?? f.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/** Competitions played off handicap, whose scorecards print the handicap block. */
+export function netCompetitionIds(event: EventDetail): number[] {
+  return event.roundDetails
+    .flatMap((r) => r.competitions)
+    .filter((c) => !c.isContest && c.allowance !== "Gross")
+    .map((c) => c.id);
 }

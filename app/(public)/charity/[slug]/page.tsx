@@ -17,6 +17,7 @@ import {
   localToday,
   locateEvent,
   money,
+  netCompetitionIds,
   registrationState,
   teamSizeLabel,
 } from "@/lib/golf";
@@ -88,7 +89,9 @@ export default async function CharityEventPage({ params }: Params) {
           {event.isComplete ? "Results" : "Leaderboard"}
         </h2>
         <LeaderboardView
+          slug={slug}
           leaderboards={boards}
+          netCompetitionIds={netCompetitionIds(event)}
           streamUrl={live ? leaderboardStreamUrl(slug) : null}
         />
       </div>

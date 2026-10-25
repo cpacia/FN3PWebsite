@@ -82,9 +82,11 @@ export function TourBand({
                       Field
                     </dt>
                     <dd className="mt-0.5 font-display text-lg font-bold text-fn-ink">
-                      {nextEvent.maxPlayers != null
-                        ? `${nextEvent.totalPlayers}/${nextEvent.maxPlayers}`
-                        : nextEvent.totalPlayers}
+                      {nextEvent.teamSize > 1
+                        ? `${nextEvent.entries} teams`
+                        : nextEvent.maxPlayers != null
+                          ? `${nextEvent.totalPlayers}/${nextEvent.maxPlayers}`
+                          : `${nextEvent.totalPlayers} players`}
                     </dd>
                   </div>
                   <div>
