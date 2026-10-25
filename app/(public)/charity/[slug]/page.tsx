@@ -238,24 +238,40 @@ export default async function CharityEventPage({ params }: Params) {
           </Tile>
         </div>
 
-        {event.description && (
-          <div className="mt-12 max-w-prose">
-            <Markdown content={event.description} />
-          </div>
-        )}
-
-        {event.sponsorImageUrl && (
-          <div className="mt-14 flex flex-wrap items-center gap-6 rounded-3xl bg-white p-6 ring-1 ring-fn-line sm:p-8">
-            <p className="font-display text-lg font-extrabold uppercase text-fn-ink">Presented with</p>
-            <div className="relative h-20 w-56">
-              <Image
-                src={event.sponsorImageUrl}
-                alt="Event sponsor"
-                fill
-                sizes="224px"
-                className="object-contain object-left"
-              />
-            </div>
+        {(event.description || event.sponsorImageUrl) && (
+          <div
+            className={`mt-12 grid overflow-hidden rounded-3xl bg-white ring-1 ring-fn-line ${
+              event.description && event.sponsorImageUrl ? "lg:grid-cols-[1.7fr_1fr]" : ""
+            }`}
+          >
+            {event.description && (
+              <div className="p-8 sm:p-10">
+                <h3 className="mb-5 text-sm font-semibold text-fn-accent-deep">About the event</h3>
+                {/* The opening paragraph leads, set in the display face; the rest reads as body. */}
+                <div className="max-w-prose [&>div>p:first-child]:font-display [&>div>p:first-child]:text-2xl [&>div>p:first-child]:font-extrabold [&>div>p:first-child]:leading-snug [&>div>p:first-child]:tracking-normal [&>div>p:first-child]:text-fn-ink">
+                  <Markdown content={event.description} />
+                </div>
+              </div>
+            )}
+            {event.sponsorImageUrl && (
+              <div
+                className={`flex flex-col justify-center gap-6 p-8 sm:p-10 ${
+                  event.description ? "border-t border-fn-line lg:border-l lg:border-t-0" : ""
+                }`}
+              >
+                {/* White, not tinted: sponsor logos usually arrive on a white ground. */}
+                <h3 className="text-sm font-semibold text-fn-accent-deep">Presented with</h3>
+                <div className="relative h-40 w-full">
+                  <Image
+                    src={event.sponsorImageUrl}
+                    alt="Event sponsor"
+                    fill
+                    sizes="(max-width: 1024px) 90vw, 24rem"
+                    className="object-contain object-left"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
