@@ -76,7 +76,10 @@ export interface EventSummary {
 /** One row of a computed standings table. */
 export interface StandingRow {
   position: string;
+  /** 0 on a team row; teams are identified by `teamId`. */
   userId: number;
+  /** Team series only. */
+  teamId: number | null;
   player: string;
   /** Team series: the members under the team name. Empty for individuals. */
   members: string[];
@@ -88,6 +91,8 @@ export interface StandingRow {
 /** A computed standings table for one series. */
 export interface StandingsTable {
   seriesId: number;
+  /** The season the table is scoped to; null for an all-time series. */
+  seasonId: number | null;
   name: string;
   isMoney: boolean;
   rows: StandingRow[];
@@ -268,4 +273,21 @@ export interface MembershipType {
   name: string;
   /** Price in cents; null when Front9 doesn't publish one. */
   priceCents: number | null;
+}
+
+/** One event in a player's or team's breakdown of a standings total. */
+export interface StandingsContribution {
+  eventName: string;
+  /** Display-ready from Front9 ("Aug 17, 2026"). */
+  date: string;
+  score: string;
+  position: string;
+  /** Formatted like the table: "100" for points, "$500" for money. */
+  value: string;
+  /** Whether the result counts toward the total; a best-N series drops the rest. */
+  usedInCalc: boolean;
+  /** The event's page on this site; null when it isn't listed here. */
+  href: string | null;
+  /** Front9's numeric event id, for resolving `href`. */
+  front9EventId: number | null;
 }

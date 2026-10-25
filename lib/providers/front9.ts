@@ -28,6 +28,7 @@ import type {
   Post,
   PostSummary,
   Scorecard,
+  StandingsContribution,
   ScorecardHandicap,
   StandingRow,
   StandingsTable,
@@ -280,6 +281,8 @@ interface Front9StandingsListResponse {
 interface Front9StandingsTableRow {
   position: string;
   userId: number;
+  /** Team series only; `userId` is 0 on those rows. */
+  teamId?: number | null;
   /** Team series only: the members under the team name. */
   membersDisplay?: string[];
   displayName: string;
@@ -288,6 +291,7 @@ interface Front9StandingsTableRow {
 }
 
 interface Front9StandingsTableResponse {
+  seasonId?: number | null;
   seriesName?: string;
   type?: string;
   rows?: Front9StandingsTableRow[];
@@ -342,6 +346,7 @@ function toStandingRows(rows: Front9StandingsTableRow[], isMoney: boolean): Stan
   return rows.map((r) => ({
     position: r.position,
     userId: r.userId,
+    teamId: r.teamId ?? null,
     player: r.displayName,
     members: r.membersDisplay ?? [],
     events: r.events,
@@ -382,12 +387,66 @@ async function fetchSeriesTable(
     const rows = toStandingRows(limit != null ? all.slice(0, limit) : all, isMoney);
     return {
       seriesId: series.id,
+      seasonId: data.seasonId ?? seasonId,
       name: data.seriesName ?? series.name,
       isMoney,
       rows,
     };
   } catch {
     return null;
+  }
+}
+
+interface Front9ContributionsResponse {
+  items?: {
+    eventId?: number | null;
+    eventName?: string | null;
+    date?: string | null;
+    score?: string | number | null;
+    position?: string | number | null;
+    value?: number | null;
+    usedInCalculation?: boolean;
+  }[];
+}
+
+/**
+ * One entry's per-event breakdown of a standings total: a player's
+ * (`contributions/{userId}`) or a team's (`team-contributions/{teamId}`),
+ * scoped to `seasonId` when given. Empty when unconfigured or on error. `href`
+ * is left null for the caller to resolve against the calendar.
+ */
+export async function getStandingsContributions(
+  seriesId: number,
+  entry: { userId: number } | { teamId: number },
+  seasonId: number | null,
+  isMoney: boolean,
+): Promise<StandingsContribution[]> {
+  const cfg = front9OrgBase();
+  if (!cfg) return [];
+  const who =
+    "teamId" in entry
+      ? `team-contributions/${encodeURIComponent(String(entry.teamId))}`
+      : `contributions/${encodeURIComponent(String(entry.userId))}`;
+  const qs = seasonId != null ? `?seasonId=${encodeURIComponent(String(seasonId))}` : "";
+  const url = `${cfg.apiUrl}/orgs/${encodeURIComponent(cfg.org)}/standings/${encodeURIComponent(
+    String(seriesId),
+  )}/${who}${qs}`;
+  try {
+    const res = await fetch(url, { headers: ACCEPT_JSON, next: { revalidate: 120 } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as Front9ContributionsResponse;
+    return (data.items ?? []).map((it) => ({
+      eventName: (it.eventName ?? "").trim(),
+      date: (it.date ?? "").trim(),
+      score: String(it.score ?? ""),
+      position: String(it.position ?? ""),
+      value: formatStandingsValue(it.value, isMoney),
+      usedInCalc: !!it.usedInCalculation,
+      href: null,
+      front9EventId: it.eventId ?? null,
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -1131,6 +1190,7 @@ interface Front9LeagueStandingsResponse {
   standingSeries?: { id: number; name: string; type?: string; scope?: string } | null;
   table?: {
     seriesId: number;
+    seasonId?: number | null;
     seriesName?: string;
     type?: string;
     rows?: Front9StandingsTableRow[];
@@ -1155,6 +1215,7 @@ export async function getLeagueStandings(slug: string): Promise<StandingsTable |
     const isMoney = (data.table.type ?? data.standingSeries?.type) === "money";
     return {
       seriesId: data.table.seriesId,
+      seasonId: data.table.seasonId ?? null,
       name: data.table.seriesName ?? data.standingSeries?.name ?? "",
       isMoney,
       rows: toStandingRows(data.table.rows ?? [], isMoney),
