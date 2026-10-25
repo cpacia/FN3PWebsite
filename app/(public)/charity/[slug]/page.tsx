@@ -32,7 +32,7 @@ import {
   getTeeSheets,
   leaderboardStreamUrl,
 } from "@/lib/providers/front9";
-import type { EventDetail } from "@/lib/providers/types";
+import type { EventDetail, EventSponsor } from "@/lib/providers/types";
 import { registerForEvent } from "@/lib/registration";
 import { formatDate, socialMetadata } from "@/lib/seo";
 import { getSponsorshipPackages, isShopifyConfigured } from "@/lib/shopify";
@@ -238,43 +238,33 @@ export default async function CharityEventPage({ params }: Params) {
           </Tile>
         </div>
 
-        {(event.description || event.sponsorImageUrl) && (
-          <div
-            className={`mt-12 grid overflow-hidden rounded-3xl bg-white ring-1 ring-fn-line ${
-              event.description && event.sponsorImageUrl ? "lg:grid-cols-[1.7fr_1fr]" : ""
-            }`}
-          >
-            {event.description && (
-              <div className="p-8 sm:p-10">
-                <h3 className="mb-5 text-sm font-semibold text-fn-accent-deep">About the event</h3>
-                {/* The opening paragraph leads, set in the display face; the rest reads as body. */}
-                <div className="max-w-prose [&>div>p:first-child]:font-display [&>div>p:first-child]:text-2xl [&>div>p:first-child]:font-extrabold [&>div>p:first-child]:leading-snug [&>div>p:first-child]:tracking-normal [&>div>p:first-child]:text-fn-ink">
-                  <Markdown content={event.description} />
-                </div>
-              </div>
-            )}
-            {event.sponsorImageUrl && (
-              <div
-                className={`flex flex-col justify-center gap-6 p-8 sm:p-10 ${
-                  event.description ? "border-t border-fn-line lg:border-l lg:border-t-0" : ""
-                }`}
-              >
-                {/* White, not tinted: sponsor logos usually arrive on a white ground. */}
-                <h3 className="text-sm font-semibold text-fn-accent-deep">Presented with</h3>
-                <div className="relative h-40 w-full">
-                  <Image
-                    src={event.sponsorImageUrl}
-                    alt="Event sponsor"
-                    fill
-                    sizes="(max-width: 1024px) 90vw, 24rem"
-                    className="object-contain object-left"
-                  />
-                </div>
-              </div>
-            )}
+        {event.description && (
+          <div className="mt-12 grid gap-5 rounded-3xl bg-white p-8 ring-1 ring-fn-line sm:p-10 lg:grid-cols-[12rem_1fr] lg:gap-10">
+            <h3 className="text-sm font-semibold text-fn-accent-deep">About the event</h3>
+            {/* The opening paragraph leads, set in the display face; the rest reads as body. */}
+            <div className="max-w-prose [&>div>p:first-child]:font-display [&>div>p:first-child]:text-2xl [&>div>p:first-child]:font-extrabold [&>div>p:first-child]:leading-snug [&>div>p:first-child]:tracking-normal [&>div>p:first-child]:text-fn-ink">
+              <Markdown content={event.description} />
+            </div>
           </div>
         )}
       </section>
+
+      {event.sponsors.length > 0 && (
+        <section className="border-t border-fn-line">
+          <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
+            <h2 className="font-display text-4xl font-black uppercase text-fn-ink sm:text-5xl">
+              Thank you to our sponsors!
+            </h2>
+            <ul className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+              {event.sponsors.map((sp) => (
+                <li key={sp.id}>
+                  <SponsorTile sponsor={sp} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {sponsoring && (
         <section id="sponsor" className="scroll-mt-24 border-t border-fn-line">
@@ -352,6 +342,41 @@ function Tile({ title, children }: { title: string; children: React.ReactNode })
       <h3 className="mb-4 text-sm font-semibold text-fn-accent-deep">{title}</h3>
       {children}
     </div>
+  );
+}
+
+/** A sponsor's logo on white (logos usually arrive on a white ground), named beneath when Front9 has a name. */
+function SponsorTile({ sponsor }: { sponsor: EventSponsor }) {
+  const body = (
+    <>
+      <div className="relative flex aspect-[3/2] items-center justify-center rounded-3xl bg-white p-6 ring-1 ring-fn-line transition group-hover:ring-fn-ink">
+        {sponsor.imageUrl ? (
+          <Image
+            src={sponsor.imageUrl}
+            alt={sponsor.name || "Event sponsor"}
+            fill
+            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 18rem"
+            className="object-contain p-6"
+          />
+        ) : (
+          <span className="text-center font-display text-xl font-black uppercase leading-tight text-fn-ink">
+            {sponsor.name}
+          </span>
+        )}
+      </div>
+      {sponsor.imageUrl && sponsor.name && (
+        <p className="mt-3 text-center font-display text-sm font-bold uppercase tracking-[0.08em] text-fn-ink">
+          {sponsor.name}
+        </p>
+      )}
+    </>
+  );
+  return sponsor.linkUrl ? (
+    <a href={sponsor.linkUrl} target="_blank" rel="noreferrer" className="group block">
+      {body}
+    </a>
+  ) : (
+    body
   );
 }
 

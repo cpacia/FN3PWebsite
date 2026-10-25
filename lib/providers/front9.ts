@@ -96,7 +96,8 @@ interface Front9Event {
   /** Single-event payload only. */
   maxPlayers?: number | null;
   eventImageUrl: string;
-  sponsorImageUrl: string;
+  /** Single-event payload only. */
+  sponsors?: { id: number; name?: string | null; linkUrl?: string | null; imageUrl?: string | null }[] | null;
   totalPlayers: number;
   /** List payload only: entries in the field — teams for a team event, else players. */
   fieldSize?: number;
@@ -177,7 +178,6 @@ function toEventSummary(e: Front9Event, origin: string): EventSummary {
     town,
     state,
     thumbnailUrl: resolveImage(e.eventImageUrl, origin),
-    sponsorImageUrl: resolveImage(e.sponsorImageUrl ?? "", origin),
     // Registration closes once play starts: an in-progress or finished event
     // never shows a Register button, regardless of the configured close date.
     registrationOpen:
@@ -806,6 +806,16 @@ export async function getEventDetail(slug: string): Promise<EventDetail | null> 
     const roundDetails = (e.rounds ?? []).map((r) => toRoundDetail(r, wanted));
     const primary =
       roundDetails[0]?.competitions.find((c) => c.primary) ?? roundDetails[0]?.competitions[0];
+    const origin = apiOrigin(cfg.apiUrl);
+    const sponsors = (e.sponsors ?? [])
+      .map((sp) => ({
+        id: sp.id,
+        name: (sp.name ?? "").trim(),
+        imageUrl: resolveImage(sp.imageUrl ?? "", origin),
+        // Only web links: the URL is organizer-entered and lands in an href.
+        linkUrl: /^https?:\/\//i.test(sp.linkUrl?.trim() ?? "") ? sp.linkUrl!.trim() : null,
+      }))
+      .filter((sp) => sp.name || sp.imageUrl);
     return {
       ...summary,
       tags: e.tags ?? [],
@@ -813,6 +823,7 @@ export async function getEventDetail(slug: string): Promise<EventDetail | null> 
       feeNonMembersCents: e.registrationFeeNonMembersCents ?? null,
       teamSize: primary?.teamSize ?? 1,
       roundDetails,
+      sponsors,
     };
   } catch {
     return null;

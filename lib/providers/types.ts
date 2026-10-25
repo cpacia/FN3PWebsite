@@ -52,7 +52,6 @@ export interface EventSummary {
   town: string;
   state: string;
   thumbnailUrl: string;
-  sponsorImageUrl: string;
   registrationOpen: boolean;
   /**
    * When registration opens, carried only while that date is still in the
@@ -138,6 +137,18 @@ export interface EventDetail extends EventSummary {
   /** Players per team for the primary game; 1 for individual events. */
   teamSize: number;
   roundDetails: EventRoundDetail[];
+  sponsors: EventSponsor[];
+}
+
+/** A sponsor credited on an event page. */
+export interface EventSponsor {
+  id: number;
+  /** May be "" — Front9 doesn't require one. */
+  name: string;
+  /** Absolute; "" when the sponsor has no logo. */
+  imageUrl: string;
+  /** An http(s) URL, or null. */
+  linkUrl: string | null;
 }
 
 /** A registered player, as the field and team lists show them. */
