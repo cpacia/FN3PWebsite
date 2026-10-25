@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Bricolage_Grotesque, Inter, Outfit } from "next/font/google";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, SITE_TAGLINE } from "@/lib/seo";
 import "./globals.css";
 
@@ -23,6 +23,14 @@ const inter = Inter({
   display: "swap",
 });
 
+/** Front9's wordmark face, for the "Powered by Front9 Golf" credit only. */
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-bricolage",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -42,7 +50,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${inter.variable}`}>
+    <html lang="en" className={`${outfit.variable} ${inter.variable} ${bricolage.variable}`}>
       <body>{children}</body>
     </html>
   );

@@ -79,6 +79,13 @@ export default async function PhoenixOpenPage() {
               "linear-gradient(to top, #16233f 0%, rgba(22,35,63,0.85) 28%, rgba(22,35,63,0.25) 62%, rgba(22,35,63,0.1) 100%), linear-gradient(to right, rgba(22,35,63,0.75) 0%, rgba(22,35,63,0.35) 45%, rgba(22,35,63,0) 75%)",
           }}
         />
+        <PhotoCredit
+          author="Gage Skidmore"
+          file="https://commons.wikimedia.org/wiki/File:Waste_Management_Phoenix_Open_(51876358748).jpg"
+          license="CC BY-SA 2.0"
+          licenseUrl="https://creativecommons.org/licenses/by-sa/2.0"
+          className="right-5 top-4 lg:right-8"
+        />
         <div className="mx-auto w-full max-w-7xl px-5 pb-14 pt-40 lg:px-8 lg:pb-20">
           <StickerBadge tone="paper" className="mb-6">
             {T.dateLabel} · {T.location}
@@ -192,6 +199,13 @@ export default async function PhoenixOpenPage() {
                 fill
                 sizes="(max-width: 1024px) 100vw, 55vw"
                 className="object-cover"
+              />
+              <PhotoCredit
+                author="Bernard Gagnon"
+                file="https://commons.wikimedia.org/wiki/File:We-Ko-Pa_Golf_Club_(Cholla)_no_3.jpg"
+                license="CC BY-SA 3.0"
+                licenseUrl="https://creativecommons.org/licenses/by-sa/3.0"
+                className="bottom-3 right-4"
               />
             </div>
           </div>
@@ -379,31 +393,39 @@ export default async function PhoenixOpenPage() {
         </div>
       </section>
 
-      <p className="mx-auto max-w-7xl px-5 pb-10 text-[11px] leading-relaxed text-fn-paper/40 lg:px-8">
-        Photos: TPC Scottsdale by{" "}
-        <a
-          href="https://commons.wikimedia.org/wiki/File:Waste_Management_Phoenix_Open_(51876358748).jpg"
-          className="underline"
-        >
-          Gage Skidmore
-        </a>{" "}
-        (
-        <a href="https://creativecommons.org/licenses/by-sa/2.0" className="underline">
-          CC BY-SA 2.0
-        </a>
-        ); We-Ko-Pa Cholla by{" "}
-        <a
-          href="https://commons.wikimedia.org/wiki/File:We-Ko-Pa_Golf_Club_(Cholla)_no_3.jpg"
-          className="underline"
-        >
-          Bernard Gagnon
-        </a>{" "}
-        (
-        <a href="https://creativecommons.org/licenses/by-sa/3.0" className="underline">
-          CC BY-SA 3.0
-        </a>
-        ). Both resized.
-      </p>
     </div>
+  );
+}
+
+/**
+ * The attribution CC BY-SA asks for, set in the corner of the photo it credits
+ * rather than as a footnote, so it reads as part of the image.
+ */
+function PhotoCredit({
+  author,
+  file,
+  license,
+  licenseUrl,
+  className,
+}: {
+  author: string;
+  file: string;
+  license: string;
+  licenseUrl: string;
+  className: string;
+}) {
+  return (
+    <p
+      className={`absolute z-10 rounded-full bg-black/35 px-2.5 py-1 text-[10px] text-fn-paper/75 backdrop-blur-sm ${className}`}
+    >
+      Photo:{" "}
+      <a href={file} target="_blank" rel="noreferrer" className="hover:text-fn-paper">
+        {author}
+      </a>{" "}
+      ·{" "}
+      <a href={licenseUrl} target="_blank" rel="noreferrer" className="hover:text-fn-paper">
+        {license}
+      </a>
+    </p>
   );
 }

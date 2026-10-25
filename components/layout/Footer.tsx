@@ -86,6 +86,23 @@ export function Footer() {
             © {new Date().getFullYear()} FN3P Golf · Gray, Maine
           </p>
           <a
+            href="https://front9.com/products"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-fn-paper/45 transition-colors hover:text-fn-paper"
+          >
+            <Image
+              src="/images/f9-logo-white.png"
+              alt="Front9 Golf"
+              width={16}
+              height={16}
+              className="h-4 w-4"
+            />
+            <span>
+              Powered by <span className="font-brand">Front9 Golf</span>
+            </span>
+          </a>
+          <a
             href="mailto:fn3pgolf@gmail.com"
             className="text-xs text-fn-paper/45 transition-colors hover:text-fn-paper"
           >
