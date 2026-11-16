@@ -561,6 +561,8 @@ export interface SponsorshipPackage {
     /** "" for a product without options (Shopify's "Default Title"). */
     title: string;
     price: string;
+    /** The price as a number, for ordering packages. */
+    amount: number;
     available: boolean;
   }[];
 }
@@ -593,6 +595,13 @@ const optionTitle = (t: string) => (t === "Default Title" ? "" : t);
  * section works today. Empty when the collection doesn't exist or on error.
  */
 export async function getSponsorshipPackages(eventSlug: string): Promise<SponsorshipPackage[]> {
+  // Most expensive first — the presenting sponsor leads — whatever order the
+  // collection is in. Ranked by each package's top option.
+  const top = (p: SponsorshipPackage) => Math.max(0, ...p.variants.map((v) => v.amount));
+  return (await fetchSponsorshipPackages(eventSlug)).sort((a, b) => top(b) - top(a));
+}
+
+async function fetchSponsorshipPackages(eventSlug: string): Promise<SponsorshipPackage[]> {
   const handle = sponsorshipCollection(eventSlug);
   if (isShopifyConfigured()) {
     const data = await storefront<{
@@ -623,6 +632,7 @@ export async function getSponsorshipPackages(eventSlug: string): Promise<Sponsor
         id: v.id,
         title: optionTitle(v.title),
         price: formatMoney(v.price.amount, v.price.currencyCode),
+        amount: parseFloat(v.price.amount) || 0,
         available: v.availableForSale,
       })),
     }));
@@ -658,6 +668,7 @@ export async function getSponsorshipPackages(eventSlug: string): Promise<Sponsor
         id: String(v.id),
         title: optionTitle(v.title),
         price: formatMoney(v.price, "USD"),
+        amount: parseFloat(v.price) || 0,
         available: v.available !== false,
       })),
     }));
