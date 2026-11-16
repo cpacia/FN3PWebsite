@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { RegisterButton } from "@/components/golf/RegisterButton";
 import { TOUR_MEMBERSHIP_PRODUCT } from "@/lib/golf";
-import { productHref } from "@/lib/links";
+import { storefrontProductHref } from "@/lib/links";
 import type { MembershipType } from "@/lib/providers/types";
 import { joinTour } from "@/lib/registration";
 
@@ -28,7 +28,7 @@ export function TourMembershipButton({
   if (!plan) {
     return (
       <a
-        href={productHref(TOUR_MEMBERSHIP_PRODUCT)}
+        href={storefrontProductHref(TOUR_MEMBERSHIP_PRODUCT)}
         target="_blank"
         rel="noreferrer"
         className={

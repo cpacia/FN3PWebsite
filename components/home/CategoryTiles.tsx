@@ -4,9 +4,8 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 /**
  * Category entry points.
  *
- * The catalogue carries no product_type and no tags — collections do all the
- * categorising — so these map to collection handles rather than to a computed
- * taxonomy.
+ * Each tile opens a shop category page; see SHOP_CATEGORIES in lib/shopify.ts
+ * for how products are sorted into them.
  *
  * Tile colours come from the active print's palette (--tile-1..4, set per season
  * by lib/print-theme.ts) rather than fixed hues, so the row re-skins with the
@@ -15,11 +14,11 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
  * library rather than as four swatches.
  */
 const TILES = [
-  { label: "Hats", handle: "all-hats", bg: "var(--tile-1)", on: "var(--tile-1-on)" },
-  { label: "Polos", handle: "new-polos", bg: "var(--tile-2)", on: "var(--tile-2-on)" },
+  { label: "Hats", handle: "headwear", bg: "var(--tile-1)", on: "var(--tile-1-on)" },
+  { label: "Polos", handle: "polos", bg: "var(--tile-2)", on: "var(--tile-2-on)" },
   {
     label: "Layers",
-    handle: "country-club-pullovers",
+    handle: "layers",
     bg: "var(--tile-3)",
     on: "var(--tile-3-on)",
   },

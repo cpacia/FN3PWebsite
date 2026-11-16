@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { cartHref } from "@/lib/links";
+import { useCart } from "@/components/shop/CartProvider";
 
 const NAV = [
   { href: "/shop", label: "Shop" },
@@ -17,6 +17,8 @@ const NAV = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const { cart, setOpen: setBagOpen } = useCart();
+  const count = cart?.totalQuantity ?? 0;
   return (
     <header className="sticky top-0 z-50 border-b border-fn-ink/10 bg-fn-paper/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-5 py-4 lg:px-8">
@@ -44,14 +46,19 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <a
-            href={cartHref()}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full border-2 border-fn-ink px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.14em] text-fn-ink transition-colors hover:bg-fn-ink hover:text-fn-paper"
+          <button
+            type="button"
+            onClick={() => setBagOpen(true)}
+            aria-label={count > 0 ? `Bag, ${count} item${count === 1 ? "" : "s"}` : "Bag"}
+            className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-2 border-fn-ink px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.14em] text-fn-ink transition-colors hover:bg-fn-ink hover:text-fn-paper"
           >
             Bag
-          </a>
+            {count > 0 && (
+              <span className="tabular -mr-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-fn-ink px-1.5 text-[10px] text-fn-paper group-hover:bg-fn-paper group-hover:text-fn-ink">
+                {count}
+              </span>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}

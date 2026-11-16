@@ -379,11 +379,7 @@ What's actually in the repo, and where it deviates from the plan above.
 - **Next 16.3.4, not 16.2.7.** LFG's pin carries nine high-severity advisories
   (including a DoS in the Image Optimization API, which this site uses). No
   legacy constraint here, so the patched release won.
-- **No cart yet.** `CartProvider`/`CartDrawer` were planned, but nothing on the
-  home page can add to a cart — the product pages don't exist. The header's
-  "Bag" and every product card link out to the live Shopify storefront through
-  `lib/links.ts`, which is the single place to change when `/shop` lands.
-  `app/api/shop/checkout` is built and ready for it.
+- **No cart yet** (superseded — see "Shop (step two)" below).
 - **Leaderboard/odds/bracket normalizers not ported.** They belong with the
   event pages; porting them now would be four modules of dead code. The SSE
   design note still holds: Front9's stream frames are byte-identical to the GET
@@ -414,11 +410,10 @@ rail and `/the-turn` render empty until Front9 has posts.
 
 ## Asset dependency this surfaced
 
-The design sits every product cutout on a panel of the print, which **depends on
-product images having transparent backgrounds**. 27 of 28 are transparent PNGs
-and look right. The Full Swing Anorak is a JPG with a baked-in white background
-and renders as a white box interrupting the pattern. It needs a transparent
-re-export, and any new product photography should follow the same rule.
+(Superseded in step two.) The card used to sit each cutout on the print, which
+needed transparent product photos. By the 2027 line about a third of the
+catalogue was shot on white, so cards now multiply photos onto a neutral panel
+(`--color-fn-panel`) and the print frames the shop instead.
 
 More pattern artwork is still the biggest single upgrade available. There is one
 real print; the offseason colourway is derived from it, and every additional
@@ -430,6 +425,23 @@ regenerates — within five minutes of a request after the boundary. The same
 applies to the override env vars: they take effect on the next build or
 revalidation, not on server restart. This bit during verification, when a
 runtime override appeared to do nothing.
+
+## Shop (step two)
+
+- **Routes:** `/shop`, `/shop/[category]` (polos, headwear, layers,
+  accessories, womens, sale), `/products/[handle]`. All static, 5-minute ISR.
+- **Categories are derived, not configured.** The catalogue has no product types
+  or tags, and the collections lag new products, so `categoryOf()` in
+  `lib/shopify.ts` checks Product type → category collections → title →
+  description. Setting Product type in Shopify always wins. Sale = compare-at
+  price above price. Tour entry, the trip, the GHIN club and `*-sponsorships`
+  products are excluded from the shop (`isMerch`).
+- **Titles:** a "Pre Order -" prefix becomes a Pre-order badge; ALL-CAPS titles
+  are recased.
+- **The bag** is a Shopify cart: id in an httpOnly cookie, read and written by
+  server actions in `lib/cart-actions.ts`, loaded on the client after mount so
+  pages stay static. Checkout goes to the cart's hosted `checkoutUrl`.
+- Featured sort = products under 45 days old first, then Shopify best-selling.
 
 ## Verified
 

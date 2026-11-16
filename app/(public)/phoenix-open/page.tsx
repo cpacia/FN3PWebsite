@@ -9,7 +9,7 @@ import { StickerBadge } from "@/components/ui/StickerBadge";
 import { buyPhoenixTrip } from "@/lib/checkout";
 import { PLACEHOLDER_PHOENIX_PAYMENTS } from "@/lib/fixtures/products";
 import { eventPath, getGolfCalendar } from "@/lib/golf";
-import { productHref } from "@/lib/links";
+import { storefrontProductHref } from "@/lib/links";
 import { courseLink, daysUntilTrip, PHOENIX_TRIP } from "@/lib/phoenix";
 import { socialMetadata } from "@/lib/seo";
 import { getProduct } from "@/lib/shopify";
@@ -382,7 +382,7 @@ export default async function PhoenixOpenPage() {
               <TripCheckout
                 options={options}
                 action={product ? buyPhoenixTrip : null}
-                productUrl={productHref(T.productHandle)}
+                productUrl={storefrontProductHref(T.productHandle)}
               />
               <RegistrationFailed
                 tone="paper"

@@ -18,6 +18,13 @@
   --color-fn-ink-soft: #4a4a4a;
   --color-fn-paper: #faf8f4;
   --color-fn-line: #e2ddd3;
+  /*
+   * The ground every product photo sits on. About a third of the catalogue is
+   * shot on white rather than cut out, so photos are drawn with
+   * mix-blend-multiply: white melts into this panel, and cutouts sit on it the
+   * same way. Kept neutral so garment colours stay true.
+   */
+  --color-fn-panel: #efebe4;
 
   /*
    * The active print's colours. Declared here so Tailwind generates
@@ -76,6 +83,32 @@ body {
  */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Product descriptions arrive as Shopify HTML typed into the admin: loose <p>s,
+ * <br>s, the odd list. Give them a reading rhythm without a typography plugin.
+ */
+.product-copy > * + * {
+  margin-top: 0.85em;
+}
+.product-copy ul {
+  list-style: disc;
+  padding-left: 1.25em;
+}
+.product-copy ol {
+  list-style: decimal;
+  padding-left: 1.25em;
+}
+.product-copy strong,
+.product-copy b {
+  color: var(--color-fn-ink);
+  font-weight: 600;
+}
+.product-copy a {
+  color: var(--color-fn-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 @keyframes fn-marquee {

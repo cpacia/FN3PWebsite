@@ -1,6 +1,8 @@
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
+import { CartDrawer } from "@/components/shop/CartDrawer";
+import { CartProvider } from "@/components/shop/CartProvider";
 import { getAnnouncements } from "@/lib/announcements";
 import { getPrintTheme, printThemeVars } from "@/lib/print-theme";
 
@@ -16,11 +18,14 @@ export default async function PublicLayout({
 
   return (
     <div style={printThemeVars(theme)}>
-      {/* Above the header, so the sticky header slides over it on scroll. */}
-      <AnnouncementBar messages={announcements} />
-      <Header />
-      <main>{children}</main>
-      <Footer />
+      <CartProvider>
+        {/* Above the header, so the sticky header slides over it on scroll. */}
+        <AnnouncementBar messages={announcements} />
+        <Header />
+        <main>{children}</main>
+        <Footer />
+        <CartDrawer />
+      </CartProvider>
     </div>
   );
 }

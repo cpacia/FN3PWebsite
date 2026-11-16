@@ -24,7 +24,7 @@ import {
 } from "@/lib/golf";
 import { buySponsorship } from "@/lib/checkout";
 import { hasResults } from "@/lib/leaderboard";
-import { productHref } from "@/lib/links";
+import { storefrontProductHref } from "@/lib/links";
 import {
   getEventDetail,
   getEventField,
@@ -280,7 +280,7 @@ export default async function CharityEventPage({ params }: Params) {
               <SponsorshipPackages
                 packages={packages}
                 action={isShopifyConfigured() ? buySponsorship.bind(null, slug) : null}
-                productUrl={Object.fromEntries(packages.map((p) => [p.handle, productHref(p.handle)]))}
+                productUrl={Object.fromEntries(packages.map((p) => [p.handle, storefrontProductHref(p.handle)]))}
               />
             </div>
             <RegistrationFailed

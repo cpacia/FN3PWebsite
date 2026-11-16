@@ -2,7 +2,8 @@ import { RegistrationFailed } from "@/components/golf/RegisterButton";
 import { TourMembershipButton } from "@/components/golf/TourMembershipButton";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { TOUR_MEMBERSHIP_PRODUCT } from "@/lib/golf";
-import { productHref, SHOP_IS_EXTERNAL } from "@/lib/links";
+import { productHref } from "@/lib/links";
+import { PHOENIX_TRIP } from "@/lib/phoenix";
 import type { MembershipType } from "@/lib/providers/types";
 import type { ProductCard as ProductCardData } from "@/lib/shopify";
 
@@ -36,7 +37,6 @@ export function TourGoods({
   membership: MembershipType | null;
 }) {
   if (products.length === 0) return null;
-  const external = SHOP_IS_EXTERNAL ? { target: "_blank", rel: "noreferrer" as const } : {};
 
   return (
     <section className="border-t border-fn-line bg-white">
@@ -81,8 +81,8 @@ export function TourGoods({
             ) : (
               <a
                 key={p.handle}
-                href={productHref(p.handle)}
-                {...external}
+                // The trip has its own page; the rest open their product page.
+                href={p.handle === PHOENIX_TRIP.productHandle ? "/phoenix-open" : productHref(p.handle)}
                 className="group flex flex-col justify-between border-2 border-fn-ink bg-fn-paper p-7 transition-colors hover:bg-fn-accent-light"
               >
                 <div>
